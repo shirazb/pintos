@@ -70,6 +70,34 @@ timer_interrupt() has been extended to iterate through sleeping_threads and wake
 them up if they have overslept (ticks >= wake_time). Waking threads is achieved
 by calling sema_up() on the sleep_desc’s semaphore.
 
+timer_sleep() could still be interrupted before sema_down() is called. This, 
+however, is fine. Whilst the interrupt handler runs, the thread still ‘sleeps’.
+If the thread has already overslept, the logic still works. The interrupt handler
+will up the semaphore to 1 and return. Once control returns to timer_sleep(),
+it will down the semaphore back to 0. This will not cause it to sleep again, so
+the function has worked as expected.
+
+>> A3: (2 marks)
+>> What steps are taken to minimise the amount of time spent in
+>> the timer interrupt handler?
+
+The struct sleep_dest of the thread is stored on the stack frame of timer_sleep(),
+instead of on the heap. This means the handler does not have to call free on it.
+
+When sleep_descs are adde to the sleeping_threads list, they are ordered by
+wake_up time, earliest first. This means that, when the handler is looking for 
+the element in the list to remove, it should be at or near the front.
+
+---- SYNCHRONIZATION ----
+
+>> A4: (1 mark)
+>> How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+
+>> A5: (1 mark)
+>> How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+
 The handler and timer_sleep() share the sleeping_threads list and thus access to
 it must be synchronised. The handler cannot sleep, so synchronisation primitives
 like semaphores can not be used, you must disable interrupts in timer_sleep(), or
@@ -84,23 +112,40 @@ will up the semaphore to 1 and return. Once control returns to timer_sleep(),
 it will down the semaphore back to 0. This will not cause it to sleep again, so
 the function has worked as expected.
 
->> A3: (2 marks)
->> What steps are taken to minimise the amount of time spent in
->> the timer interrupt handler?
-
----- SYNCHRONIZATION ----
-
->> A4: (1 mark)
->> How are race conditions avoided when multiple threads call
->> timer_sleep() simultaneously?
-
->> A5: (1 mark)
->> How are race conditions avoided when a timer interrupt occurs
->> during a call to timer_sleep()?
+(put that paragraph in both A5 and A2 because I thought it was applicable to 
+both)
 
 ---- RATIONALE ----
 
 >> A6: (2 marks)
 >> Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+The use of a semaphore instead of a lock easily solves the problem where
+an interrupt occurs before timer_sleep() blocks the thread. If a lock was used,
+timer_interrupt() would be releasing a lock not owned by the thread and then
+timer_sleep() would then acquire it afterwards, causing it to sleep again.
+
+The struct sleep_desc was used for a variety of reasons. Extracting the three
+extra members of thread into another struct aids readability and encapsulation. It
+also means that struct thread can have a pointer to this struct, meaning that it
+can be initialised to NULL and then set only in timer.c Moreoever, the struct
+sleep_desc lives only on the stack frame of timer_sleep(), reducing memory use. 
+Unlike if thread contained the struct itself and not a pointer, assertions to test 
+whether the struct sleep_desc exists or not can now be used, improving the 
+robustness of the code and aiding in debugging.
+
+sleeping_threads was kept static in timer.c instead of sleep_desc.c since it
+pertains to the logic of the timer, not a struct sleep_desc. This also makes
+sleep_descs more extensible because any list of sleeping_threads can be passed to
+it. Furthermore, this reduces the coupling between timer.c and sleep_desc, which
+has been extracted into a separate functionality. If sleeping_threads was kept 
+visible in the header of timer or sleep_desc, this would further cloud the 
+namespace, make side effects on it harder to track, and unnecessarily expose it to
+the other modules. 
+
+Factoring out struct sleep_desc and its functions into another file
+keeps the code cleaner and, importantly, more modular. Putting it in thread or timer would force their headers to make visible all the sleep_desc functions. This
+clouds the namespace in other files that include them and forces two separate
+functionalities to be coupled together. 
 
