@@ -43,7 +43,7 @@
     
     void foo(void) {
         uint64_t u = 10;
-        printf("%" PRIu64 "/n", u); // MIGHT NEED QUOTES AROUND PRIu64 !!
+        printf("%'"PRIu64" \n");
     }
 7. Both locks and semaphores are used for synchronisation. They both contain initialiser functions.
    Both have methods for blocking the current thread until it can have exclusive access to some 
@@ -62,7 +62,10 @@
    'struct thread', corrupting its state. This is detected with the use of a 'magic' member at the 
    end of 'struct thread': All threads are initialised with the same number that is never changed. 
    If at any point it has been, the stack must have overflowed, overwriting the 'magic' member.
-   NEED TO SPECIFY WHEN MAGIC IS CHECKED??
+   
+   This is checked in the is_thread() function. This function is called when setting up a stack frame
+   during creation of a new thread in alloc_frame(); schedule() when switching threads to the 
+   first ready one; thread_current(); and thread_unblock().
 9. Result in: src/devices/build/tests/devices/alarm-multiple.result 
    Output in: src/devices/build/tests/devices/alarm-multiple.output
 
