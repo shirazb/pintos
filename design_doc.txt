@@ -1,0 +1,106 @@
+            +----------------------+
+            |        OS 211        |
+            |  TASK 0: ALARMCLOCK  |
+            |    DESIGN DOCUMENT   |
+            +----------------------+
+                   
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, or notes for the
+>> markers, please give them here.
+
+None.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course staff.
+
+Operating System Concepts by by Abraham Silberschatz, Peter B. Galvin &
+Greg Gagne.
+
+                 ALARM CLOCK
+                 ===========
+
+---- DATA STRUCTURES ----
+
+>> A1: (2 marks) 
+>> Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+in threads/sleep_desc.h:
+    struct sleep_desc
+      {
+        struct semaphore sema;           /* Used to sleep the thread */
+        int64_t wake_time;               /* Scheduled waking up time */
+        struct list_elem sleep_elem;     /* List element for sleeping_threads */
+      };
+Information needed to sleep threads.‘sema’ blocks the thread.‘wake_time’ is scheduled wake time.‘sleep_elem’ puts ‘sleep_desc’s in list of sleeping threads maintained by timer.c
+
+in devices/timer.c:
+    static struct list sleeping_threads;
+timer_sleep() adds threads to this list, timer_interrupt() will remove them if 
+they have overslept.
+
+Added to struct thread:
+    struct sleep_desc *sleep_desc;      /* Used by timer.c to sleep threads. */
+
+---- ALGORITHMS ----
+
+>> A2: (2 marks)
+>> Briefly describe what happens in a call to timer_sleep(),
+>> including the actions performed by the timer interrupt handler 
+>> on each timer tick.
+
+timer_sleep() retrieves the current thread and then calls sleep_until() on it.
+This function initialises the current thread’s sleep_desc member by setting its
+wake_time member, initialising the semaphore and adding it to the 
+sleeping_threads list. The semaphore is initialised to 0. It is then downed,
+blocking the thread.
+
+timer_interrupt() has been extended to iterate through sleeping_threads and wake
+them up if they have overslept (ticks >= wake_time). Waking threads is achieved
+by calling sema_up() on the sleep_desc’s semaphore.
+
+The handler and timer_sleep() share the sleeping_threads list and thus access to
+it must be synchronised. The handler cannot sleep, so synchronisation primitives
+like semaphores can not be used, you must disable interrupts in timer_sleep(), or
+more specifically in this case, sleep_desc_init(). sleep_desc_init() first
+disables interrupts, then inserts the sleep_desc into sleeping_threads, then 
+reenables them. 
+
+timer_sleep() could still be interrupted before sema_down() is called. This, 
+however, is fine. Whilst the interrupt handler runs, the thread still ‘sleeps’.
+If the thread has already overslept, the logic still works. The interrupt handler
+will up the semaphore to 1 and return. Once control returns to timer_sleep(),
+it will down the semaphore back to 0. This will not cause it to sleep again, so
+the function has worked as expected.
+
+>> A3: (2 marks)
+>> What steps are taken to minimise the amount of time spent in
+>> the timer interrupt handler?
+
+---- SYNCHRONIZATION ----
+
+>> A4: (1 mark)
+>> How are race conditions avoided when multiple threads call
+>> timer_sleep() simultaneously?
+
+>> A5: (1 mark)
+>> How are race conditions avoided when a timer interrupt occurs
+>> during a call to timer_sleep()?
+
+---- RATIONALE ----
+
+>> A6: (2 marks)
+>> Why did you choose this design?  In what ways is it superior to
+>> another design you considered?
+
