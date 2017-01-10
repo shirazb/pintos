@@ -15,9 +15,7 @@ sleep_desc_init (struct sleep_desc *desc, int64_t wake_time, struct list *sleepi
 
   desc->wake_time = wake_time;
   list_push_back (sleeping_threads, &desc->sleep_elem);
-//  printf ("---------- DEBUG: Added thread %d to the list.\n", t->tid);
   sema_init(&desc->sema, 0);
-//  printf ("---------- DEBUG: Initd the semaphore for thread %d.\n", t->tid);
 }
 
 /**
@@ -44,8 +42,6 @@ wake_up (struct sleep_desc *desc)
   sema_up (&desc->sema);
   list_remove (&desc->sleep_elem);
   desc = NULL;
-
-  // printf ("---------- DEBUG: Removed thread %d from the list.\n", t->tid);
 }
 
 /**

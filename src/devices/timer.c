@@ -42,7 +42,7 @@ static void wake_overslept_threads (void);
 void
 timer_init (void) 
 {
-  list_init(&sleeping_threads); printf("------ DEBUG: initd list\n");
+  list_init(&sleeping_threads);
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
