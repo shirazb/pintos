@@ -43,7 +43,7 @@
     
     void foo(void) {
         uint64_t u = 10;
-        printf("%'"PRIu64" \n");
+        printf("%" PRIu64 "\n");
     }
 7. Both locks and semaphores are used for synchronisation. They both contain initialiser functions.
    Both have methods for blocking the current thread until it can have exclusive access to some 
