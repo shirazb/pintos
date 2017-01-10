@@ -2,7 +2,7 @@
 2. strcpy() relies on a trailing '\0'. This may not occur, so it may just keep on copying. Thus, it 
    is highly vulnerable to buffer overflows.  
 3. 4 ticks, 4 / 100 of a second.
-4. Anything calling schedule will have already disabled interrupts. Then, schedule() gets 'cur' and 
+4. Any thread calling schedule will have already disabled interrupts. Then, schedule() gets 'cur' and 
    'next' threads from running_thread() and next_thread_to_run(), respectively, and calls 
    switch_threads() on them.
  
@@ -21,7 +21,8 @@
 
    Once switch_threads() has returned, thread_schedule_tail() finishes off execution of schedule().
    This function sets the current thread's 'status' member to running. If the newly switched to 
-   thread is dying, the page containing its 'struct thread' and stack is freed.
+   thread is dying, the page containing its 'struct thread' and stack is freed. The newly running thread
+   is responsible for reenabling interrupts.
 
    The tricky case is when a thread is run for the first time, meaning when switch_threads() is
    called (with this new thread as 'next'), it is not already executing inside of switch_threads().
@@ -30,7 +31,11 @@
 
    TODO: EXPLAIN WHY INTERRUPTS MUST BE STOPPED, WHY THEY ARE ALREADY STOPPED, AND WHEN THEY ARE 
          REENABLED.
-5. !?!?!?!?
+5. Reproducibility refers to obtaining the same result when running the same program with the same 
+   arguments in the same environment. PintOS on QEMU is not deterministic. For example interrupts wil
+   occur at irregular intervals, causing bugs to occur only sometimes. Therefore, you must run tests  
+   many times. The more times you run a test, the more confident you can be of your synchronisation, but
+   it is impossible to tell if your synchronisation is perfect from this.
 6. As so:
     #include <inttypes.h> // PRIu64
     #include <stdio.h>    // printf
@@ -38,7 +43,7 @@
     
     void foo(void) {
         uint64_t u = 10;
-        printf("%" PRIu64 "/n", u);
+        printf("%" PRIu64 "/n", u); // MIGHT NEED QUOTES AROUND PRIu64 !!
     }
 7. Both locks and semaphores are used for synchronisation. They both contain initialiser functions.
    Both have methods for blocking the current thread until it can have exclusive access to some 
