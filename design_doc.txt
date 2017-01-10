@@ -94,6 +94,9 @@ the element in the list to remove, it should be at or near the front.
 >> How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+Each struct thread will use their own sleep_desc. There is no concurrent access
+to any data.
+
 >> A5: (1 mark)
 >> How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
@@ -129,7 +132,7 @@ timer_sleep() would then acquire it afterwards, causing it to sleep again.
 The struct sleep_desc was used for a variety of reasons. Extracting the three
 extra members of thread into another struct aids readability and encapsulation. It
 also means that struct thread can have a pointer to this struct, meaning that it
-can be initialised to NULL and then set only in timer.c Moreoever, the struct
+can be initialised to NULL and then set only in timer.c. Moreoever, the struct
 sleep_desc lives only on the stack frame of timer_sleep(), reducing memory use. 
 Unlike if thread contained the struct itself and not a pointer, assertions to test 
 whether the struct sleep_desc exists or not can now be used, improving the 
