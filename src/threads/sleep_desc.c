@@ -14,8 +14,11 @@ sleep_desc_init (struct sleep_desc *desc, int64_t wake_time, struct list *sleepi
   ASSERT (desc != NULL);
 
   desc->wake_time = wake_time;
-  list_push_back (sleeping_threads, &desc->sleep_elem);
   sema_init(&desc->sema, 0);
+
+  enum intr_level old_level = intr_set_level(INTR_OFF);
+  list_push_back (sleeping_threads, &desc->sleep_elem);
+  intr_set_level(old_level);
 }
 
 /**

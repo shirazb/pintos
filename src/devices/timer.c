@@ -197,16 +197,10 @@ sleep_until (struct thread *t, int64_t wake_time)
   ASSERT (intr_get_level() == INTR_ON);
   ASSERT (t->status != THREAD_BLOCKED);
 
-  // Disable interrupts
-  enum intr_level old_level = intr_set_level (INTR_OFF);
-
   // Set up t's sleep descriptor
   struct sleep_desc sleep_desc;
   sleep_desc_init(&sleep_desc, wake_time, &sleeping_threads);
   t->sleep_desc = &sleep_desc;
-
-  // Reenable interrupts.
-  intr_set_level (old_level);
 
   // Put to sleep
   // Interrupt here causes thread to 'sleep' as PIT's interrupt handler runs.

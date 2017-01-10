@@ -4,6 +4,7 @@
 #include <list.h>
 #include <stdint.h>
 #include <threads/synch.h>
+#include <threads/interrupt.h>
 
 /* Contains info for implementing the sleeping of threads without busy waiting,
    used in timer_sleep() and timer_interrupt().
