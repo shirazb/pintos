@@ -99,7 +99,7 @@ static bool order_by_priority(const struct list_elem *a, const struct
    finishes. */
 void
 thread_init(void) {
-    ASSERT (intr_get_level() == INTR_OFF);
+    ASSERT(intr_get_level() == INTR_OFF);
 
     lock_init(&tid_lock);
     list_init(&ready_list);
@@ -185,7 +185,7 @@ thread_create(const char *name, int priority,
     tid_t tid;
     enum intr_level old_level;
 
-    ASSERT (function != NULL);
+    ASSERT(function != NULL);
 
     /* Allocate thread. */
     t = palloc_get_page(PAL_ZERO);
@@ -233,8 +233,8 @@ thread_create(const char *name, int priority,
    primitives in synch.h. */
 void
 thread_block(void) {
-    ASSERT (!intr_context());
-    ASSERT (intr_get_level() == INTR_OFF);
+    ASSERT(!intr_context());
+    ASSERT(intr_get_level() == INTR_OFF);
 
     thread_current()->status = THREAD_BLOCKED;
     schedule();
@@ -252,11 +252,11 @@ void
 thread_unblock(struct thread *t) {
     enum intr_level old_level;
 
-    ASSERT (is_thread(t));
+    ASSERT(is_thread(t));
 
     old_level = intr_disable();
-    ASSERT (t->status == THREAD_BLOCKED);
-    list_push_back(&ready_list, &t->elem);
+    ASSERT(t->status == THREAD_BLOCKED);
+    list_insert_ordered(&ready_list, &t->elem, order_by_priority, NULL);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -295,7 +295,7 @@ thread_tid(void) {
    returns to the caller. */
 void
 thread_exit(void) {
-    ASSERT (!intr_context());
+    ASSERT(!intr_context());
 
 #ifdef USERPROG
     process_exit ();
@@ -318,7 +318,7 @@ thread_yield(void) {
     struct thread *cur = thread_current();
     enum intr_level old_level;
 
-    ASSERT (!intr_context());
+    ASSERT(!intr_context());
 
     old_level = intr_disable();
     if (cur != idle_thread) {
@@ -335,7 +335,7 @@ void
 thread_foreach(thread_action_func *func, void *aux) {
     struct list_elem *e;
 
-    ASSERT (intr_get_level() == INTR_OFF);
+    ASSERT(intr_get_level() == INTR_OFF);
 
     for (e = list_begin(&all_list); e != list_end(&all_list);
          e = list_next(e)) {
@@ -427,7 +427,7 @@ idle(void *idle_started_ UNUSED) {
 /* Function used as the basis for a kernel thread. */
 static void
 kernel_thread(thread_func *function, void *aux) {
-    ASSERT (function != NULL);
+    ASSERT(function != NULL);
 
     intr_enable();       /* The scheduler runs with interrupts off. */
     function(aux);       /* Execute the thread function. */
@@ -459,9 +459,9 @@ static void
 init_thread(struct thread *t, const char *name, int priority) {
     enum intr_level old_level;
 
-    ASSERT (t != NULL);
-    ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
-    ASSERT (name != NULL);
+    ASSERT(t != NULL);
+    ASSERT(PRI_MIN <= priority && priority <= PRI_MAX);
+    ASSERT(name != NULL);
 
     memset(t, 0, sizeof *t);
     t->status = THREAD_BLOCKED;
@@ -481,8 +481,8 @@ init_thread(struct thread *t, const char *name, int priority) {
 static void *
 alloc_frame(struct thread *t, size_t size) {
     /* Stack data is always allocated in word-size units. */
-    ASSERT (is_thread(t));
-    ASSERT (size % sizeof(uint32_t) == 0);
+    ASSERT(is_thread(t));
+    ASSERT(size % sizeof(uint32_t) == 0);
 
     t->stack -= size;
     return t->stack;
@@ -522,7 +522,7 @@ void
 thread_schedule_tail(struct thread *prev) {
     struct thread *cur = running_thread();
 
-    ASSERT (intr_get_level() == INTR_OFF);
+    ASSERT(intr_get_level() == INTR_OFF);
 
     /* Mark us as running. */
     cur->status = THREAD_RUNNING;
@@ -542,7 +542,7 @@ thread_schedule_tail(struct thread *prev) {
        palloc().) */
     if (prev != NULL && prev->status == THREAD_DYING &&
         prev != initial_thread) {
-        ASSERT (prev != cur);
+        ASSERT(prev != cur);
         palloc_free_page(prev);
     }
 }
@@ -560,9 +560,9 @@ schedule(void) {
     struct thread *next = next_thread_to_run();
     struct thread *prev = NULL;
 
-    ASSERT (intr_get_level() == INTR_OFF);
-    ASSERT (cur->status != THREAD_RUNNING);
-    ASSERT (is_thread(next));
+    ASSERT(intr_get_level() == INTR_OFF);
+    ASSERT(cur->status != THREAD_RUNNING);
+    ASSERT(is_thread(next));
 
     if (cur != next) {
         prev = switch_threads(cur, next);
@@ -631,7 +631,7 @@ reschedule(struct thread *t) {
         printf("ERROR: Calling reschedule on thread with status: %d\n",
                t->status
         );
-        ASSERT (false);
+        ASSERT(false);
     }
 
 }
