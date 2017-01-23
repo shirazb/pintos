@@ -1,0 +1,71 @@
+1. https://gitlab.doc.ic.ac.uk/lab1617_autumn/pintos-task0_sb4515.git
+2. strcpy() relies on a trailing '\0'. This may not occur, so it may just keep on copying. Thus, it 
+   is highly vulnerable to buffer overflows.  
+3. 4 ticks, 4 / 100 of a second.
+4. Any thread calling schedule will have already disabled interrupts. Then, schedule() gets 'cur' and 
+   'next' threads from running_thread() and next_thread_to_run(), respectively, and calls 
+   switch_threads() on them.
+ 
+   This pushes the CPU registers (those of the 'cur' thread) onto the stack, except for the stack 
+   pointer. This is stored in 'cur->stack'. The CPU stack pointer is then set to be 'next->stack', 
+   which is the new thread's stack pointer. Its registers are then restored by popping the stack,
+   restoring the state of this thread. The 'cur' thread (the one that has now paused execution) is 
+   returned, containing its correct stack pointer in its 'stack' member.
+
+   The thread being interrupted, 'cur', is stopped inside of the switch_threads() function. Thus,
+   when it is being resumed, in other words, when it becomes the 'next' thread later on, it is 
+   halfway through the execution of switch_threads(). This means that both the 'cur' and 'next' 
+   threads are executing inside of switch_threads() when it is called. The 'next' thread has 
+   already pushed its registers onto the stack and saved its stack pointer in its 'stack' member,
+   all that remains is to set the CPU stack pointer to its one and to restore its registers.
+
+   Once switch_threads() has returned, thread_schedule_tail() finishes off execution of schedule().
+   This function sets the current thread's 'status' member to running. If the newly switched to 
+   thread is dying, the page containing its 'struct thread' and stack is freed. The newly running thread
+   is responsible for reenabling interrupts.
+
+   The tricky case is when a thread is run for the first time, meaning when switch_threads() is
+   called (with this new thread as 'next'), it is not already executing inside of switch_threads().
+   To solve this, thread_create() creates some fake stack frames in the new thread's stack (WHICH 
+   DO FUCKING WHAT!?)
+
+   TODO: EXPLAIN WHY INTERRUPTS MUST BE STOPPED, WHY THEY ARE ALREADY STOPPED, AND WHEN THEY ARE 
+         REENABLED.
+5. Reproducibility refers to obtaining the same result when running the same program with the same 
+   arguments in the same environment. PintOS on QEMU is not deterministic. For example interrupts wil
+   occur at irregular intervals, causing bugs to occur only sometimes. Therefore, you must run tests  
+   many times. The more times you run a test, the more confident you can be of your synchronisation, but
+   it is impossible to tell if your synchronisation is perfect from this.
+6. As so:
+    #include <inttypes.h> // PRIu64
+    #include <stdio.h>    // printf
+    #include <stdint.h>   // uint64_t
+    
+    void foo(void) {
+        uint64_t u = 10;
+        printf("%" PRIu64 "\n");
+    }
+7. Both locks and semaphores are used for synchronisation. They both contain initialiser functions.
+   Both have methods for blocking the current thread until it can have exclusive access to some 
+   data ('sema_down()' and 'lock_acquire()'). Both have methods for giving up their exclusive 
+   access to some data ('sema_up()' and 'lock_release()'). Both have methods for trying to acquire
+   the lock / down the semaphore, returning a bool indicating whether it was possible instead of
+   waiting ('lock_try_acquire()' and 'sema_try_down()').
+
+   Locks contain a semaphore as well as a reference to their holder. 'lock_acquire()' downs the 
+   semaphore, but also sets the holder to the current thread. 'lock_release()' ups the semaphore 
+   and also nulls out the lock's holder. 'lock_try_acquire()' calls 'sema_try_down()' and then set
+   the holder to be the current thread, if the down was successful. 
+8. In a 4kB page of memory, the 'struct thread' starts at the beginning. The rest is its kernel 
+   stack, which grows downward. The maximum size the kernel stack can grow to is thus 
+   'size of page - size of thread struct'. If the stack grows too large it will overflow into the 
+   'struct thread', corrupting its state. This is detected with the use of a 'magic' member at the 
+   end of 'struct thread': All threads are initialised with the same number that is never changed. 
+   If at any point it has been, the stack must have overflowed, overwriting the 'magic' member.
+   
+   This is checked in the is_thread() function. This function is called when setting up a stack frame
+   during creation of a new thread in alloc_frame(); schedule() when switching threads to the 
+   first ready one; thread_current(); and thread_unblock().
+9. Result in: src/devices/build/tests/devices/alarm-multiple.result 
+   Output in: src/devices/build/tests/devices/alarm-multiple.output
+

@@ -1,13 +1,13 @@
 #include "devices/timer.h"
 #include <debug.h>
 #include <inttypes.h>
-#include <round.h>
 #include <stdio.h>
 #include "devices/pit.h"
 #include "threads/interrupt.h"
 #include "threads/synch.h"
+#include "threads/sleep_desc.h"
 #include "threads/thread.h"
-  
+
 /* See [8254] for hardware details of the 8254 timer chip. */
 
 #if TIMER_FREQ < 19
@@ -30,11 +30,19 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+
+/* For sleeping threads without busy waiting.
+   Only use in timer_sleep() and timer_interrupt(), and their exclusive callees. */
+static struct list sleeping_threads;
+static void sleep_until (struct thread *t, int64_t wake_time);
+static void wake_overslept_threads (void);
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
-   and registers the corresponding interrupt. */
+  and registers the corresponding interrupt. */
 void
 timer_init (void) 
 {
+  list_init(&sleeping_threads);
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
 }
@@ -87,13 +95,13 @@ timer_elapsed (int64_t then)
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
-timer_sleep (int64_t ticks) 
+timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks ();
-
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  struct thread *curr = thread_current();
+  sleep_until (curr, start + ticks);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -170,8 +178,62 @@ timer_print_stats (void)
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
+  // NOT SURE OF THE ORDERING
   ticks++;
   thread_tick ();
+  wake_overslept_threads ();
+}
+
+/**
+ * Sets a thread to sleep until the given wait time.
+ * It is slept using a semaphore. The PIT interrupt handler will check
+ * if it has slept long enough and wake it if so.
+ * @param t Thread to sleep.
+ * @param wake_time Scheduled wake time in ticks.
+ */
+static void
+sleep_until (struct thread *t, int64_t wake_time)
+{
+  ASSERT (intr_get_level() == INTR_ON);
+  ASSERT (t->status != THREAD_BLOCKED);
+
+  // Set up t's sleep descriptor
+  struct sleep_desc sleep_desc;
+  sleep_desc_init(&sleep_desc, wake_time, &sleeping_threads);
+  t->sleep_desc = &sleep_desc;
+
+  // Put to sleep
+  // Interrupt here causes thread to 'sleep' as PIT's interrupt handler runs.
+  sema_down (&t->sleep_desc->sema);
+}
+
+/**
+ * If the thread is blocked and it has slept long enough, wake it up. Only to
+ * called by the timer interrupt handler.
+ * @param t Thread to wake.
+ * @param aux Unused.
+ */
+static void
+wake_overslept_threads (void)
+{
+  struct sleep_desc *desc;
+  struct list_elem *e;
+
+  // printf("------ DEBUG: Begin looping ---------\n");
+
+  // Iterate over all threads that are asleep
+  for (e  = list_begin (&sleeping_threads);
+       e != list_end (&sleeping_threads);
+       e  = list_next (e))
+    {
+      desc = list_entry (e, struct sleep_desc, sleep_elem);
+      ASSERT (desc != NULL);
+      //printf("------ DEBUG: looping on thread %d.\n", t->tid);
+
+      sleep_desc_wake_if_overslept (desc, ticks);
+    }
+
+  //printf("------ DEBUG: End looping ---------\n");
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
