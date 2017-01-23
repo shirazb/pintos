@@ -322,9 +322,14 @@ thread_yield(void) {
 
     old_level = intr_disable();
     if (cur != idle_thread) {
-        list_push_back(&ready_list, &cur->elem);
+        list_insert_ordered(&ready_list, &cur->elem, order_by_priority, NULL);
     }
     cur->status = THREAD_READY;
+
+    // NB: Call schedule(), not reschedule(). We are yielding the CPU so a
+    // schedule must occur. Reschedule() is for when a priority change means a
+    // different thread may now have the highest priority, so should preempt
+    // the running thread.
     schedule();
     intr_set_level(old_level);
 }
@@ -607,6 +612,7 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
  *   2. It is the current thread and has lower priority than the next thread
  *      to run
  */
+// FIXME: DON'T WE NEED TO TURN OFF INTERRUPTS BEFORE CALLING SCHEDULE?
 static void
 reschedule(struct thread *t) {
     if (t->status == THREAD_READY) {
