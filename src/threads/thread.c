@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <lib/kernel/ordered_list.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -23,7 +24,7 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+static struct ordered_list ready_list;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -102,7 +103,7 @@ thread_init(void) {
     ASSERT(intr_get_level() == INTR_OFF);
 
     lock_init(&tid_lock);
-    list_init(&ready_list);
+    ordered_list_init(&ready_list, order_by_priority);
     list_init(&all_list);
 
     /* Set up a thread structure for the running thread. */
@@ -256,7 +257,7 @@ thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    list_insert_ordered(&ready_list, &t->elem, order_by_priority, NULL);
+    ordered_list_insert(&ready_list, &t->elem, NULL);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -322,7 +323,7 @@ thread_yield(void) {
 
     old_level = intr_disable();
     if (cur != idle_thread) {
-        list_insert_ordered(&ready_list, &cur->elem, order_by_priority, NULL);
+        ordered_list_insert(&ready_list, &cur->elem, NULL);
     }
     cur->status = THREAD_READY;
 
@@ -500,10 +501,11 @@ alloc_frame(struct thread *t, size_t size) {
    idle_thread. */
 static struct thread *
 next_thread_to_run(void) {
-    if (list_empty(&ready_list)) {
+    if (list_empty(&ready_list.list)) {
         return idle_thread;
     } else {
-        return list_entry (list_pop_front(&ready_list), struct thread, elem);
+        return list_entry (list_pop_front(&ready_list.list), struct thread,
+                           elem);
     }
 }
 
@@ -617,8 +619,7 @@ static void
 reschedule(struct thread *t) {
     if (t->status == THREAD_READY) {
         // Reorder list according to new priority.
-        struct list_elem *removed = list_remove(&t->elem);
-        list_insert_ordered(&ready_list, removed, order_by_priority, NULL);
+        ordered_list_resort(&ready_list, &t->elem, NULL);
 
         struct thread *next_to_run = next_thread_to_run();
 
