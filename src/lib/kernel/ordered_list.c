@@ -38,3 +38,10 @@ ordered_list_pop_front(struct ordered_list *ol) {
     lock_release(&ol->lock);
     return removed;
 }
+
+bool ordered_list_empty(struct ordered_list *ol) {
+    lock_acquire(&ol->lock);
+    bool is_empty = list_empty(&ol->list);
+    lock_release(&ol->lock);
+    return is_empty;
+}
