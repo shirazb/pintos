@@ -7,7 +7,7 @@
 struct ordered_list {
     struct list list;
     list_less_func *less;
-    struct lock *lock;
+    struct lock lock;
 };
 
 void ordered_list_init(struct ordered_list *, list_less_func *);
