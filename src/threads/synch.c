@@ -47,7 +47,7 @@ sema_init (struct semaphore *sema, unsigned value)
   ASSERT (sema != NULL);
 
   sema->value = value;
-  list_init (&sema->waiters);
+  ordered_list_init (&sema->waiters, order_by_priority);
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -68,7 +68,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      ordered_list_insert (&sema->waiters, &thread_current ()->elem, NULL);
       thread_block ();
     }
   sema->value--;
@@ -113,9 +113,10 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
+  if (!ordered_list_empty (&sema->waiters))
+    thread_unblock (list_entry (ordered_list_pop_front (&sema->waiters),
                                 struct thread, elem));
+    // RESCHEDULE HERE OR INSIDE OF thread_unblock() ???
   sema->value++;
   intr_set_level (old_level);
 }

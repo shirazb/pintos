@@ -7,8 +7,8 @@
 /* A counting semaphore. */
 struct semaphore 
   {
-    unsigned value;             /* Current value. */
-    struct ordered_list waiters;        /* List of waiting threads. */
+    unsigned value;               /* Current value. */
+    struct ordered_list waiters;  /* List of waiting threads. */
   };
 
 void sema_init (struct semaphore *, unsigned value);

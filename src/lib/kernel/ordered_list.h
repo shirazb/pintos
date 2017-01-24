@@ -7,7 +7,7 @@
 
 struct ordered_list {
     struct list list;
-    list_less_func *less;
+    list_less_func *less; // Should the void *aux param to less be a parameter of ordered_list (in the struct) or passed in to each function that requires use of the less func?
     struct lock lock;
 };
 

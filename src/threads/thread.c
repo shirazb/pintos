@@ -82,9 +82,6 @@ static tid_t allocate_tid(void);
 
 static void reschedule(struct thread *t);
 
-static bool order_by_priority(const struct list_elem *a, const struct
-        list_elem *b, void *aux UNUSED);
-
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -606,7 +603,7 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
  * For ordering threads in the ready list. If a has equal priority to b,
  * put it after b.
  */
-static bool
+bool
 order_by_priority(const struct list_elem *a, const struct list_elem *b,
                   void *aux UNUSED) {
     struct thread *thread_a = list_entry(a, struct thread, elem);

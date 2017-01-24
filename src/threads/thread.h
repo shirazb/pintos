@@ -142,4 +142,8 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+// Exposing this is terrible design. It is part of the logic of both threads and semaphores though. This is good cause to make a less abstract 'thread_queue' wrapper on top of an ordered_list.
+bool order_by_priority(const struct list_elem *a, const struct
+        list_elem *b, void *aux UNUSED);
+
 #endif /* threads/thread.h */
