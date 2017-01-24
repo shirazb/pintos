@@ -30,3 +30,11 @@ ordered_list_insert(struct ordered_list *ol, struct list_elem *elem, void
     list_insert_ordered(&ol->list, elem, ol->less, aux);
     lock_acquire(&ol->lock);
 }
+
+struct list_elem *
+ordered_list_pop_front(struct ordered_list *ol) {
+    lock_acquire(&ol->lock);
+    struct list_elem *removed = list_pop_front(&ol->list);
+    lock_release(&ol->lock);
+    return removed;
+}
