@@ -257,6 +257,9 @@ thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
+
+    // Do we need to call reschedule here, or somehow make a schedule occur in
+    // synch.c?
     ordered_list_insert(&ready_list, &t->elem, NULL);
     t->status = THREAD_READY;
     intr_set_level(old_level);
@@ -359,6 +362,11 @@ thread_set_priority(int new_priority) {
     curr_thread->priority = new_priority;
 
     reschedule(curr_thread);
+
+    // Should we just be doing this instead?
+//    if (new_priority < next_thread_to_run()->priority) {
+//        thread_yield();
+//    }
 }
 
 /* Returns the current thread's priority. */
@@ -615,6 +623,12 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
  *      to run
  */
 // FIXME: DON'T WE NEED TO TURN OFF INTERRUPTS BEFORE CALLING SCHEDULE?
+// This is only called in thread_set_priority(), unless we do need to call it
+// in thread_unblock(),
+// According to the spec, preemption only occurs when the current thread lowers
+// its priority such that it no longer has the highest priority (it then
+// yields). Would that not make this function unnecessary (and its
+// parametrisation on t)?
 static void
 reschedule(struct thread *t) {
     if (t->status == THREAD_READY) {
