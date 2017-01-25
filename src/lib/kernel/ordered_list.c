@@ -4,8 +4,8 @@
 void
 ordered_list_init(struct ordered_list *ol, list_less_func *less, void *aux) {
     list_init(&ol->list);
-    ol->less = less;
     lock_init(&ol->lock);
+    ol->less = less;
     ol->aux = aux;
 }
 
