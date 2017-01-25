@@ -100,7 +100,7 @@ thread_init(void) {
     ASSERT(intr_get_level() == INTR_OFF);
 
     lock_init(&tid_lock);
-    ordered_list_init(&ready_list, order_by_priority);
+    ordered_list_init(&ready_list, order_by_priority, NULL);
     list_init(&all_list);
 
     /* Set up a thread structure for the running thread. */
@@ -257,7 +257,7 @@ thread_unblock(struct thread *t) {
 
     // Do we need to call reschedule here, or somehow make a schedule occur in
     // synch.c?
-    ordered_list_insert(&ready_list, &t->elem, NULL);
+    ordered_list_insert(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -323,7 +323,7 @@ thread_yield(void) {
 
     old_level = intr_disable();
     if (cur != idle_thread) {
-        ordered_list_insert(&ready_list, &cur->elem, NULL);
+        ordered_list_insert(&ready_list, &cur->elem);
     }
     cur->status = THREAD_READY;
 
@@ -630,7 +630,7 @@ static void
 reschedule(struct thread *t) {
     if (t->status == THREAD_READY) {
         // Reorder list according to new priority.
-        ordered_list_resort(&ready_list, &t->elem, NULL);
+        ordered_list_resort(&ready_list, &t->elem);
 
         struct thread *next_to_run = next_thread_to_run();
 

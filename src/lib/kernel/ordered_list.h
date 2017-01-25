@@ -7,15 +7,16 @@
 
 struct ordered_list {
     struct list list;
-    list_less_func *less; // Should the void *aux param to less be a parameter of ordered_list (in the struct) or passed in to each function that requires use of the less func?
+    list_less_func *less;
+    void *aux;
     struct lock lock;
 };
 
-void ordered_list_init(struct ordered_list *, list_less_func *);
+void ordered_list_init(struct ordered_list *, list_less_func *, void *aux);
 
-void ordered_list_resort(struct ordered_list *, struct list_elem *, void *aux);
+void ordered_list_resort(struct ordered_list *, struct list_elem *;
 
-void ordered_list_insert(struct ordered_list *, struct list_elem *, void * aux);
+void ordered_list_insert(struct ordered_list *, struct list_elem *);
 struct list_elem *ordered_list_pop_front(struct ordered_list *);
 
 bool ordered_list_empty(struct ordered_list *);
