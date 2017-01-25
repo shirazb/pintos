@@ -46,7 +46,7 @@ sema_init(struct semaphore *sema, unsigned value) {
     ASSERT (sema != NULL);
 
     sema->value = value;
-    ordered_list_init(&sema->waiters, order_by_priority);
+    ordered_list_init(&sema->waiters, order_by_priority, NULL);
 }
 
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
@@ -106,25 +106,27 @@ sema_up(struct semaphore *sema) {
 
     ASSERT (sema != NULL);
 
+    struct thread *awoken_thread = NULL;
+
     old_level = intr_disable();
     if (!ordered_list_empty(&sema->waiters)) {
-        struct thread *awoken_thread = list_entry (ordered_list_pop_front(&sema->waiters),
+        awoken_thread = list_entry (ordered_list_pop_front(&sema->waiters),
                                                    struct thread, elem);
         ASSERT(awoken_thread != NULL);
         thread_unblock(awoken_thread);
+    }
+    sema->value++;
 
-        // Technically, we should be checking that the next thread to run now
-        // has a higher priority than the current thread. However, if this
-        // thread is not awoken_thread, and it didn't before, it still won't.
-        // So we assume the case where it is awoken_thread.
-        // Could make a function in thread.h that tells the running thread to
-        // yield if it is no longer the highest priority thread?
-        if (awoken_thread->priority > thread_current()->priority) {
-            thread_yield();
-        }
+    // Technically, we should be checking that the next thread to run now
+    // has a higher priority than the current thread. However, if this
+    // thread is not awoken_thread, and it didn't before, it still won't.
+    // So we assume the case where it is awoken_thread.
+    // Could make a function in thread.h that tells the running thread to
+    // yield if it is no longer the highest priority thread?
+    if (!intr_context() && awoken_thread != NULL && awoken_thread->priority > thread_current()->priority) {
+        thread_yield();
     }
 
-    sema->value++;
     intr_set_level(old_level);
 }
 

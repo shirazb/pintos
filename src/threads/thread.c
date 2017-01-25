@@ -220,6 +220,19 @@ thread_create(const char *name, int priority,
     /* Add to run queue. */
     thread_unblock(t);
 
+    struct lock lock;
+    lock_init(&lock);
+    lock_acquire(&lock);
+    struct thread *next_to_run = list_entry(ordered_list_front(&ready_list), struct thread, elem);
+
+    lock_release(&lock);
+
+    if (thread_current()->priority < next_to_run->priority) {
+        thread_yield();
+    }
+
+//    printf("--- DEBUG: Created thread %s\n", t->name);
+
     return tid;
 }
 
@@ -255,8 +268,6 @@ thread_unblock(struct thread *t) {
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
 
-    // Do we need to call reschedule here, or somehow make a schedule occur in
-    // synch.c?
     ordered_list_insert(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
@@ -321,11 +332,24 @@ thread_yield(void) {
 
     ASSERT(!intr_context());
 
+    /*****/
+
+//    printf("--- DEBUG: BEFORE YIELD CURR THREAD IS %s, priority = %d\n", cur->name, cur->priority);
+
+//    for (struct list_elem *e = list_begin(&ready_list.list); e != list_end(&ready_list.list); e = list_next(e)) {
+//        struct thread *t = list_entry(e, struct thread, elem);
+//        printf("--- DEBUG: Thread %s. Priority: %d\n", t->name, t->priority);
+//    }
+
+    /*****/
+
     old_level = intr_disable();
     if (cur != idle_thread) {
         ordered_list_insert(&ready_list, &cur->elem);
     }
     cur->status = THREAD_READY;
+
+//    printf("--- DEBUG: AFTER YIELD CURR THREAD IS %s, priority = %d\n", cur->name, cur->priority);
 
     // NB: Call schedule(), not reschedule(). We are yielding the CPU so a
     // schedule must occur. Reschedule() is for when a priority change means a
@@ -355,15 +379,24 @@ void
 thread_set_priority(int new_priority) {
     ASSERT(new_priority >= PRI_MIN && new_priority <= PRI_MAX);
 
+    struct lock lock;
+    lock_init(&lock);
+    lock_acquire(&lock);
+
     struct thread *curr_thread = thread_current();
+//    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, curr_thread->priority, new_priority);
     curr_thread->priority = new_priority;
 
-    reschedule(curr_thread);
+//    reschedule(curr_thread);
 
-    // Should we just be doing this instead?
-//    if (new_priority < next_thread_to_run()->priority) {
-//        thread_yield();
-//    }
+    struct thread *next_to_run = list_entry(ordered_list_front(&ready_list), struct thread, elem);
+    lock_release(&lock);
+
+    if (thread_current()->priority < next_to_run->priority) {
+        thread_yield();
+    }
+
+//    printf("---DEBUG: Set priority of thread %s to %d", curr_thread->name, curr_thread->priority);
 }
 
 /* Returns the current thread's priority. */
@@ -509,7 +542,7 @@ next_thread_to_run(void) {
     if (list_empty(&ready_list.list)) {
         return idle_thread;
     } else {
-        return list_entry (list_pop_front(&ready_list.list), struct thread,
+        return list_entry (ordered_list_pop_front(&ready_list), struct thread,
                            elem);
     }
 }

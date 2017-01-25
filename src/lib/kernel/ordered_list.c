@@ -3,8 +3,11 @@
 
 void
 ordered_list_init(struct ordered_list *ol, list_less_func *less, void *aux) {
+    ASSERT(ol != NULL);
+    ASSERT(less != NULL);
+
     list_init(&ol->list);
-    lock_init(&ol->lock);
+//    lock_init(&ol->lock);
     ol->less = less;
     ol->aux = aux;
 }
@@ -16,31 +19,44 @@ ordered_list_init(struct ordered_list *ol, list_less_func *less, void *aux) {
 // TODO: WRITE COMMENT HERE EXPLAINING WHY REMOVE/INSERT IS FASTER THAN SORT
 void
 ordered_list_resort(struct ordered_list *ol, struct list_elem *elem) {
-    lock_acquire(&ol->lock);
+    ASSERT(ol != NULL);
+
+//    lock_acquire(&ol->lock);
     struct list_elem *removed = list_remove(elem);
     ASSERT(removed != NULL);
     list_insert_ordered(&ol->list, elem, ol->less, ol->aux);
-    lock_release(&ol->lock);
+//    lock_release(&ol->lock);
 }
 
 void
 ordered_list_insert(struct ordered_list *ol, struct list_elem *elem) {
-    lock_acquire(&ol->lock);
+    ASSERT(ol != NULL);
+
+//    lock_acquire(&ol->lock);
     list_insert_ordered(&ol->list, elem, ol->less, ol->aux);
-    lock_acquire(&ol->lock);
+//    lock_acquire(&ol->lock);
+}
+
+struct list_elem *
+ordered_list_front(struct ordered_list *ol) {
+    ASSERT(ol != NULL);
+
+//    lock_acquire(&ol->lock);
+    struct list_elem *front = list_front(&ol->list);
+//    lock_release(&ol->lock);
+    return front;
 }
 
 struct list_elem *
 ordered_list_pop_front(struct ordered_list *ol) {
-    lock_acquire(&ol->lock);
-    struct list_elem *removed = list_pop_front(&ol->list);
-    lock_release(&ol->lock);
-    return removed;
+    ASSERT(ol != NULL);
+    return list_pop_front(&ol->list);
 }
 
 bool ordered_list_empty(struct ordered_list *ol) {
-    lock_acquire(&ol->lock);
+    ASSERT(ol != NULL);
+//    lock_acquire(&ol->lock);
     bool is_empty = list_empty(&ol->list);
-    lock_release(&ol->lock);
+//    lock_release(&ol->lock);
     return is_empty;
 }

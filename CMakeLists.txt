@@ -278,6 +278,8 @@ set(SOURCE_FILES
     src/threads/palloc.c
     src/threads/palloc.h
     src/threads/pte.h
+    src/threads/sleep_desc.c
+    src/threads/sleep_desc.h
     src/threads/switch.h
     src/threads/synch.c
     src/threads/synch.h
