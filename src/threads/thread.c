@@ -220,16 +220,7 @@ thread_create(const char *name, int priority,
     /* Add to run queue. */
     thread_unblock(t);
 
-    struct lock lock;
-    lock_init(&lock);
-    lock_acquire(&lock);
-    struct thread *next_to_run = list_entry(ordered_list_front(&ready_list), struct thread, elem);
-
-    lock_release(&lock);
-
-    if (thread_current()->priority.effective < next_to_run->priority.effective) {
-        thread_yield();
-    }
+    thread_yield();
 
 //    printf("--- DEBUG: Created thread %s\n", t->name);
 
@@ -379,37 +370,23 @@ void
 thread_set_priority(int new_priority) {
     ASSERT(new_priority >= PRI_MIN && new_priority <= PRI_MAX);
 
-    struct lock lock;
-    lock_init(&lock);
-    lock_acquire(&lock);
-
     struct thread *curr_thread = thread_current();
-//    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, curr_thread->priority, new_priority);
+//    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, thread_effective_priority(curr_thread), new_priority);
+
+    int old_priority = curr_thread->priority.actual;
     curr_thread->priority.actual = new_priority;
-    if (curr_thread->priority.effective < curr_thread->priority.actual) {
-        curr_thread->priority.effective = curr_thread->priority.actual;
-    }
 
-    struct thread *next_to_run = ordered_list_empty(&ready_list) ?
-                                    idle_thread :
-                                    list_entry(
-                                         ordered_list_front(&ready_list),
-                                         struct thread,
-                                         elem
-                                    );
-    lock_release(&lock);
-
-    if (thread_current()->priority.effective < next_to_run->priority.effective) {
+    if (new_priority < old_priority) {
         thread_yield();
     }
 
-//    printf("---DEBUG: Set priority of thread %s to %d", curr_thread->name, curr_thread->priority);
+//    printf("---DEBUG: Set priority of thread %s to %d", curr_thread->name, thread_effective_priority(curr_thread));
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority(void) {
-    return thread_current()->priority.effective;
+    return thread_effective_priority(thread_current());
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -437,6 +414,26 @@ int
 thread_get_recent_cpu(void) {
     /* Not yet implemented. */
     return 0;
+}
+
+/**
+ * If the thread has a donater, returns max(donated priority, actual priority). Else, returns actual priority.
+ */
+int
+thread_effective_priority(struct thread *t) {
+    int effective_priority = t->priority.actual;
+
+    // If top_donater's priority is higher than t's actual priority, set effective to that.
+    if (!ordered_list_empty(&t->priority.donaters)) {
+        struct thread *top_donator = list_entry(ordered_list_front(&t->priority.donaters), struct thread, donater_elem);
+        int top_donation = thread_effective_priority(top_donator);
+
+        if (top_donation > effective_priority) {
+            effective_priority = top_donation;
+        }
+    }
+
+    return effective_priority;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -532,9 +529,8 @@ static void priority_init(struct priority *priority, int actual_priority) {
     ASSERT(PRI_MIN <= actual_priority && actual_priority <= PRI_MAX);
 
     priority->actual = actual_priority;
-    priority->effective = actual_priority;
     priority->donatee = NULL;
-    list_init(&priority->donaters);
+    ordered_list_init(&priority->donaters, order_by_priority, NULL);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -659,5 +655,5 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
 
-    return thread_a->priority.effective > thread_b->priority.effective;
+    return thread_effective_priority(thread_a) > thread_effective_priority(thread_b);
 }

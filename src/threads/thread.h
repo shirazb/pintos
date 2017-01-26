@@ -9,9 +9,8 @@
 
 struct priority {
     int actual;
-    int effective;
     struct thread *donatee;
-    struct list donaters;
+    struct ordered_list donaters;
 };
 
 /* States in a thread's life cycle. */
@@ -154,5 +153,7 @@ int thread_get_load_avg (void);
 // Exposing this is terrible design. It is part of the logic of both threads and semaphores though. This is good cause to make a less abstract 'thread_queue' wrapper on top of an ordered_list.
 bool order_by_priority(const struct list_elem *a, const struct
         list_elem *b, void *aux UNUSED);
+
+int thread_effective_priority(struct thread *thread);
 
 #endif /* threads/thread.h */
