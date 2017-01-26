@@ -80,21 +80,21 @@ void thread_schedule_tail(struct thread *prev);
 
 static tid_t allocate_tid(void);
 
-static void reschedule(struct thread *t);
+static void priority_init(struct priority *priority, int actual_priority);
 
 /* Initializes the threading system by transforming the code
-   that's currently running into a thread.  This can't work in
-   general and it is possible in this case only because loader.S
-   was careful to put the bottom of the stack at a page boundary.
+  that's currently running into a thread.  This can't work in
+  general and it is possible in this case only because loader.S
+  was careful to put the bottom of the stack at a page boundary.
 
-   Also initializes the run queue and the tid lock.
+  Also initializes the run queue and the tid lock.
 
-   After calling this function, be sure to initialize the page
-   allocator before trying to create any threads with
-   thread_create().
+  After calling this function, be sure to initialize the page
+  allocator before trying to create any threads with
+  thread_create().
 
-   It is not safe to call thread_current() until this function
-   finishes. */
+  It is not safe to call thread_current() until this function
+  finishes. */
 void
 thread_init(void) {
     ASSERT(intr_get_level() == INTR_OFF);
@@ -227,7 +227,7 @@ thread_create(const char *name, int priority,
 
     lock_release(&lock);
 
-    if (thread_current()->priority < next_to_run->priority) {
+    if (thread_current()->priority.effective < next_to_run->priority.effective) {
         thread_yield();
     }
 
@@ -385,14 +385,21 @@ thread_set_priority(int new_priority) {
 
     struct thread *curr_thread = thread_current();
 //    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, curr_thread->priority, new_priority);
-    curr_thread->priority = new_priority;
+    curr_thread->priority.effective = new_priority;
+    curr_thread->priority.actual = new_priority;
+    // TODO: Update effective priority properly
 
-//    reschedule(curr_thread);
 
-    struct thread *next_to_run = list_entry(ordered_list_front(&ready_list), struct thread, elem);
+    struct thread *next_to_run = ordered_list_empty(&ready_list) ?
+                                    idle_thread :
+                                    list_entry(
+                                         ordered_list_front(&ready_list),
+                                         struct thread,
+                                         elem
+                                    );
     lock_release(&lock);
 
-    if (thread_current()->priority < next_to_run->priority) {
+    if (thread_current()->priority.effective < next_to_run->priority.effective) {
         thread_yield();
     }
 
@@ -402,7 +409,7 @@ thread_set_priority(int new_priority) {
 /* Returns the current thread's priority. */
 int
 thread_get_priority(void) {
-    return thread_current()->priority;
+    return thread_current()->priority.effective;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -511,13 +518,23 @@ init_thread(struct thread *t, const char *name, int priority) {
     t->status = THREAD_BLOCKED;
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
-    t->priority = priority;
+    priority_init(&t->priority, priority);
     t->sleep_desc = NULL;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);
     intr_set_level(old_level);
+}
+
+static void priority_init(struct priority *priority, int actual_priority) {
+    ASSERT(priority != NULL);
+    ASSERT(PRI_MIN <= actual_priority && actual_priority <= PRI_MAX);
+
+    priority->actual = actual_priority;
+    priority->effective = actual_priority;
+    priority->donatee = NULL;
+    list_init(&priority->donaters);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -539,11 +556,11 @@ alloc_frame(struct thread *t, size_t size) {
    idle_thread. */
 static struct thread *
 next_thread_to_run(void) {
-    if (list_empty(&ready_list.list)) {
+    if (ordered_list_empty(&ready_list)) {
         return idle_thread;
     } else {
-        return list_entry (ordered_list_pop_front(&ready_list), struct thread,
-                           elem);
+        return list_entry(ordered_list_pop_front(&ready_list), struct thread,
+                          elem);
     }
 }
 
@@ -642,47 +659,5 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
 
-    return thread_a->priority > thread_b->priority;
-}
-
-/**
- * t has had its priority changed. Call schedule if:
- *   1. It is now the ready thread of highest priority, exceeding also the
- *      running thread.
- *   2. It is the current thread and has lower priority than the next thread
- *      to run
- */
-// FIXME: DON'T WE NEED TO TURN OFF INTERRUPTS BEFORE CALLING SCHEDULE?
-// This is only called in thread_set_priority(), unless we do need to call it
-// in thread_unblock(),
-// According to the spec, preemption only occurs when the current thread lowers
-// its priority such that it no longer has the highest priority (it then
-// yields). Would that not make this function unnecessary (and its
-// parametrisation on t)?
-static void
-reschedule(struct thread *t) {
-    if (t->status == THREAD_READY) {
-        // Reorder list according to new priority.
-        ordered_list_resort(&ready_list, &t->elem);
-
-        struct thread *next_to_run = next_thread_to_run();
-
-        // Schedule if next_to_run has higher priority than the current thread.
-        if (next_to_run->priority > thread_current()->priority) {
-            schedule();
-        }
-
-    // If the current thread no longer has the highest priority, schedule.
-    } else if (t->status == THREAD_RUNNING &&
-               t->priority < next_thread_to_run()->priority) {
-        schedule();
-
-    // Should not be rescheduling a thread that is not running on ready.
-    } else {
-        printf("ERROR: Calling reschedule on thread with status: %d\n",
-               t->status
-        );
-        ASSERT(false);
-    }
-
+    return thread_a->priority.effective > thread_b->priority.effective;
 }

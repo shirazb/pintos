@@ -7,6 +7,13 @@
 #include <threads/synch.h>
 #include <threads/sleep_desc.h>
 
+struct priority {
+    int actual;
+    int effective;
+    struct thread *donatee;
+    struct list donaters;
+};
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -89,8 +96,10 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
+
+    struct priority priority;           /* Priority. */
+    struct list_elem donater_elem;      /* List elem for donatee's donater list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
