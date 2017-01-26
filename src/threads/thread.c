@@ -385,10 +385,10 @@ thread_set_priority(int new_priority) {
 
     struct thread *curr_thread = thread_current();
 //    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, curr_thread->priority, new_priority);
-    curr_thread->priority.effective = new_priority;
     curr_thread->priority.actual = new_priority;
-    // TODO: Update effective priority properly
-
+    if (curr_thread->priority.effective < curr_thread->priority.actual) {
+        curr_thread->priority.effective = curr_thread->priority.actual;
+    }
 
     struct thread *next_to_run = ordered_list_empty(&ready_list) ?
                                     idle_thread :
