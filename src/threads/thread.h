@@ -10,7 +10,7 @@
 struct priority {
     int actual;
     struct thread *donatee;
-    struct ordered_list donaters;
+    struct ordered_list donators;
 };
 
 /* States in a thread's life cycle. */
@@ -98,7 +98,7 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct priority priority;           /* Priority. */
-    struct list_elem donater_elem;      /* List elem for donatee's donater list. */
+    struct list_elem donator_elem;      /* List elem for donatee's donater list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

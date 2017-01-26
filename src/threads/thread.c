@@ -424,8 +424,8 @@ thread_effective_priority(struct thread *t) {
     int effective_priority = t->priority.actual;
 
     // If top_donater's priority is higher than t's actual priority, set effective to that.
-    if (!ordered_list_empty(&t->priority.donaters)) {
-        struct thread *top_donator = list_entry(ordered_list_front(&t->priority.donaters), struct thread, donater_elem);
+    if (!ordered_list_empty(&t->priority.donators)) {
+        struct thread *top_donator = list_entry(ordered_list_front(&t->priority.donators), struct thread, donater_elem);
         int top_donation = thread_effective_priority(top_donator);
 
         if (top_donation > effective_priority) {
@@ -530,7 +530,7 @@ static void priority_init(struct priority *priority, int actual_priority) {
 
     priority->actual = actual_priority;
     priority->donatee = NULL;
-    ordered_list_init(&priority->donaters, order_by_priority, NULL);
+    ordered_list_init(&priority->donators, order_by_priority, NULL);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
