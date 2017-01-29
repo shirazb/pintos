@@ -296,7 +296,7 @@ set(SOURCE_FILES
     src/userprog/tss.h
     src/utils/setitimer-helper.c
     src/utils/squish-pty.c
-    src/utils/squish-unix.c)
+    src/utils/squish-unix.c src/threads/fixed-point.c src/threads/fixed-point.h)
 
 include_directories(src/ src/lib/ src/lib/kernel/ src/lib/user/)
 
