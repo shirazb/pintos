@@ -8,7 +8,7 @@
 #include <threads/sleep_desc.h>
 
 struct priority {
-    int actual;
+    int base;
     struct thread *donatee;
     struct ordered_list donators;
 };

@@ -373,8 +373,8 @@ thread_set_priority(int new_priority) {
     struct thread *curr_thread = thread_current();
 //    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, thread_effective_priority(curr_thread), new_priority);
 
-    int old_priority = curr_thread->priority.actual;
-    curr_thread->priority.actual = new_priority;
+    int old_priority = curr_thread->priority.base;
+    curr_thread->priority.base = new_priority;
 
     if (new_priority < old_priority) {
         thread_yield();
@@ -416,16 +416,16 @@ thread_get_recent_cpu(void) {
     return 0;
 }
 
-/**
- * If the thread has a donater, returns max(donated priority, actual priority). Else, returns actual priority.
+/*
+ * If the thread has a donator, returns max(donated priority, actual priority). Else, returns actual priority.
  */
 int
 thread_effective_priority(struct thread *t) {
-    int effective_priority = t->priority.actual;
+    int effective_priority = t->priority.base;
 
     // If top_donater's priority is higher than t's actual priority, set effective to that.
     if (!ordered_list_empty(&t->priority.donators)) {
-        struct thread *top_donator = list_entry(ordered_list_front(&t->priority.donators), struct thread, donater_elem);
+        struct thread *top_donator = list_entry(ordered_list_front(&t->priority.donators), struct thread, donator_elem);
         int top_donation = thread_effective_priority(top_donator);
 
         if (top_donation > effective_priority) {
@@ -528,7 +528,7 @@ static void priority_init(struct priority *priority, int actual_priority) {
     ASSERT(priority != NULL);
     ASSERT(PRI_MIN <= actual_priority && actual_priority <= PRI_MAX);
 
-    priority->actual = actual_priority;
+    priority->base = actual_priority;
     priority->donatee = NULL;
     ordered_list_init(&priority->donators, order_by_priority, NULL);
 }
