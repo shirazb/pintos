@@ -34,7 +34,7 @@
 
 /* Priority donation on lock acquire */
 static void
-donate_priority(struct thread *donator, struct thread *donatee);
+donate_priority(struct thread *donator, struct lock *lock);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -204,12 +204,16 @@ lock_acquire(struct lock *lock) {
     ASSERT (!intr_context());
     ASSERT (!lock_held_by_current_thread(lock));
 
-    if (lock->holder != NULL) {
-        donate_priority(thread_current(), lock->holder);
+    struct thread *curr = thread_current();
+    lock->holder = curr;
+
+    if (lock->holder == NULL) {
+        thread_start_receiving_donations_from(lock);
+    } else {
+        thread_set_donatee(lock->holder);
     }
 
     sema_down(&lock->semaphore);
-    lock->holder = thread_current();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -344,11 +348,17 @@ cond_broadcast(struct condition *cond, struct lock *lock) {
 }
 
 /*
- * Add donator to donatee's list of donators.
+ * Add lock to donatee's list of donators.
  * Set donator's donatee field.
  */
 static void
-donate_priority(struct thread *donator, struct thread *donatee) {
+donate_priority(struct thread *donator, struct lock *lock) {
+    struct thread *donatee = lock->holder;
+    struct hash *donators = &donatee->priority.donators;
+
+    // Set donator's donatee field
     donator->priority.donatee = donatee;
-    ordered_list_insert(&donatee->priority.donators, &donatee->donator_elem);
+
+
+    // Subsequent sema_down() call in lock_acquire() will modify the list of waiting threads
 }

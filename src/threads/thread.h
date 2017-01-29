@@ -2,16 +2,18 @@
 #define THREADS_THREAD_H
 
 #include <debug.h>
-#include <list.h>
+#include <ordered_list.h>
+#include <hash.h>
 #include <stdint.h>
 #include <threads/synch.h>
 #include <threads/sleep_desc.h>
 
-struct priority {
-    int base;
-    struct thread *donatee;
-    struct ordered_list donators;
-};
+struct priority
+  {
+    int base;                        /* Base priority */
+    struct thread *donatee;          /* Thread being donated to */
+    struct hash donators;            /* HashTable<Lock>, whose waiters represent donators */
+  };
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -98,7 +100,6 @@ struct thread
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct priority priority;           /* Priority. */
-    struct list_elem donator_elem;      /* List elem for donatee's donater list. */
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
@@ -150,10 +151,11 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-// Exposing this is terrible design. It is part of the logic of both threads and semaphores though. This is good cause to make a less abstract 'thread_queue' wrapper on top of an ordered_list.
+/* Priority functions */
 bool order_by_priority(const struct list_elem *a, const struct
         list_elem *b, void *aux UNUSED);
-
-int thread_effective_priority(struct thread *thread);
+int thread_effective_priority(struct thread *t);
+void thread_start_receiving_donations_from(struct lock *lock);
+void thread_set_donatee(struct thread *t);
 
 #endif /* threads/thread.h */

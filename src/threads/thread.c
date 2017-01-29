@@ -4,7 +4,6 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
-#include <lib/kernel/ordered_list.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -434,6 +433,26 @@ thread_effective_priority(struct thread *t) {
     }
 
     return effective_priority;
+}
+
+/*
+ * Tells the thread to receive donations from threads acquiring the lock.
+ * Current thread must be holder of the lock.
+ */
+void
+thread_start_receiving_donations_from(struct lock *lock) {
+    ASSERT(lock != NULL);
+    ASSERT(lock_held_by_current_thread(lock));
+
+    hash_insert(&thread_current()->priority.donators, &lock->elem);
+}
+
+/*
+ * Marks the current thread as the donatee of the given thread.
+ */
+void
+thread_set_donatee(struct thread *t) {
+    thread_current()->priority.donatee = t;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
