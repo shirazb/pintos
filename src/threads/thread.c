@@ -152,8 +152,9 @@ thread_tick(void) {
 /* Prints thread statistics. */
 void
 thread_print_stats(void) {
-    printf("Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
-           idle_ticks, kernel_ticks, user_ticks
+    printf(
+            "Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
+            idle_ticks, kernel_ticks, user_ticks
     );
 }
 
@@ -426,7 +427,9 @@ thread_effective_priority(struct thread *t) {
 
     // If top_donater's priority is higher than t's actual priority, set effective to that.
     if (!ordered_list_empty(&t->priority.donators)) {
-        struct thread *top_donator = list_entry(ordered_list_front(&t->priority.donators), struct thread, donator_elem);
+        struct thread *top_donator = list_entry(
+                ordered_list_front(&t->priority.donators), struct thread,
+                donator_elem);
         int top_donation = thread_effective_priority(top_donator);
 
         if (top_donation > effective_priority) {
@@ -687,5 +690,6 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
 
-    return thread_effective_priority(thread_a) > thread_effective_priority(thread_b);
+    return thread_effective_priority(thread_a) >
+           thread_effective_priority(thread_b);
 }
