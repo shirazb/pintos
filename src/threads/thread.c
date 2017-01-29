@@ -310,6 +310,7 @@ thread_exit(void) {
     intr_disable();
     list_remove(&thread_current()->allelem);
     thread_current()->status = THREAD_DYING;
+    hash_destroy(&thread_current()->priority.donators, NULL);
     schedule();
     NOT_REACHED ();
 }
@@ -423,21 +424,40 @@ int
 thread_effective_priority(struct thread *t) {
     ASSERT(t != NULL);
 
-    int effective_priority = t->priority.base;
+    // Init base and donated priority
+    int base_priority = t->priority.base;
+    int donated_priority = PRI_MIN - 1;
 
-    // If top_donater's priority is higher than t's actual priority, set effective to that.
-    if (!ordered_list_empty(&t->priority.donators)) {
-        struct thread *top_donator = list_entry(
-                ordered_list_front(&t->priority.donators), struct thread,
-                donator_elem);
-        int top_donation = thread_effective_priority(top_donator);
+    // Get the top donator
+    struct hash_iterator iter;
+    hash_first(&iter, &t->priority.donators);
+    struct hash_elem *e;
+    struct lock *acquired_lock;
+    struct ordered_list *donators;
 
-        if (top_donation > effective_priority) {
-            effective_priority = top_donation;
+    // Iterate over acquired lock
+    while ((e = hash_next(&iter))) {
+        acquired_lock = hash_entry(e, struct lock, elem);
+        donators = &acquired_lock->semaphore.waiters;
+
+        // Set donated_priority to max of donated_priority and head of lock's
+        // waiters.
+        if (ordered_list_empty(donators)) {
+            continue;
+        } else {
+            struct thread *donator = list_entry(
+                    ordered_list_front(donators),
+                    struct thread,
+                    elem
+            );
+            int donation = thread_effective_priority(donator);
+            if (donation > donated_priority) {
+                donated_priority = donation;
+            }
         }
     }
 
-    return effective_priority;
+    return donated_priority > base_priority ? donated_priority : base_priority;
 }
 
 /*
@@ -565,7 +585,7 @@ static void priority_init(struct priority *priority, int actual_priority) {
 
     priority->base = actual_priority;
     priority->donatee = NULL;
-    ordered_list_init(&priority->donators, order_by_priority, NULL);
+    hash_init(&priority->donators, lock_hash_code, lock_hash_less, NULL);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -591,7 +611,7 @@ next_thread_to_run(void) {
         return idle_thread;
     } else {
         return list_entry(ordered_list_pop_front(&ready_list), struct thread,
-                          elem);
+                elem);
     }
 }
 
@@ -693,3 +713,4 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
     return thread_effective_priority(thread_a) >
            thread_effective_priority(thread_b);
 }
+

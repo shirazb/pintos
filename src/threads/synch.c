@@ -32,9 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
-/* Priority donation on lock acquire */
-static void
-donate_priority(struct thread *donator, struct lock *lock);
+///* Priority donation on lock acquire */
+//static void
+//donate_priority(struct thread *donator, struct lock *lock);
 
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
@@ -115,7 +115,7 @@ sema_up(struct semaphore *sema) {
     old_level = intr_disable();
     if (!ordered_list_empty(&sema->waiters)) {
         awoken_thread = list_entry (ordered_list_pop_front(&sema->waiters),
-                                                   struct thread, elem);
+                                    struct thread, elem);
         ASSERT(awoken_thread != NULL);
         thread_unblock(awoken_thread);
     }
@@ -202,6 +202,8 @@ void
 lock_acquire(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (!intr_context());
+    printf("--- DEBUG: Thread \'%s\' acquiring lock %d",
+           thread_current()->name, lock_hash_code(&lock->elem, NULL));
     ASSERT (!lock_held_by_current_thread(lock));
 
     struct thread *curr = thread_current();
@@ -244,6 +246,8 @@ lock_try_acquire(struct lock *lock) {
 void
 lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
+    printf("--- DEBUG: Thread \'%s\' releasing lock %d",
+           thread_current()->name, lock_hash_code(&lock->elem, NULL));
     ASSERT (lock_held_by_current_thread(lock));
 
 
@@ -256,7 +260,7 @@ lock_release(struct lock *lock) {
     // Tell head of waiters list to start receiving donations from lock
     struct list *waiters = &lock->semaphore.waiters.list;
     if (!list_empty(waiters)) {
-         to_be_woken = list_entry(
+        to_be_woken = list_entry(
                 list_front(waiters),
                 struct thread,
                 elem
@@ -267,8 +271,10 @@ lock_release(struct lock *lock) {
 
     // Set each of waiter's tail's donatee members to to_be_woken
     struct list_elem *still_waiting = list_tail(waiters);
-    for (; still_waiting != list_end(waiters); still_waiting = list_next(still_waiting)) {
-        struct thread *waiting_thread = list_entry(still_waiting, struct thread, elem);
+    for (; still_waiting != list_end(waiters);
+           still_waiting = list_next(still_waiting)) {
+        struct thread *waiting_thread = list_entry(still_waiting, struct thread,
+                                                   elem);
 
         // to_be_woken will be NULL if waiters was empty
         thread_set_donatee(waiting_thread, to_be_woken);
@@ -285,6 +291,31 @@ lock_held_by_current_thread(const struct lock *lock) {
     ASSERT (lock != NULL);
 
     return lock->holder == thread_current();
+}
+
+/*
+ * Generate hash code for locks. Prime numbers were picked arbitrarily.
+ */
+unsigned
+lock_hash_code(const struct hash_elem *e, void *aux UNUSED) {
+    struct lock *lock = hash_entry(e, struct lock, elem);
+
+//    return hash_bytes(lock, sizeof(struct lock)) * 683 ^
+//           hash_bytes(&lock->semaphore, sizeof(struct semaphore)) * 997 ^
+//           hash_bytes(&lock->elem, sizeof(struct hash_elem)) * 991 ^
+//           hash_bytes(lock->holder, sizeof(struct thread)) * 773;
+    return (unsigned) lock;
+}
+
+/*
+ * Compares two locks, ordering them by less than.
+ */
+bool
+lock_hash_less(const struct hash_elem *a, const struct hash_elem *b,
+               void *aux UNUSED) {
+    struct lock *lock_a = hash_entry(a, struct lock, elem);
+    struct lock *lock_b = hash_entry(b, struct lock, elem);
+    return lock_a < lock_b;
 }
 
 /* One semaphore in a list. */
@@ -354,8 +385,10 @@ cond_signal(struct condition *cond, struct lock *lock UNUSED) {
     ASSERT (lock_held_by_current_thread(lock));
 
     if (!list_empty(&cond->waiters)) {
-        sema_up(&list_entry (list_pop_front(&cond->waiters),
-                             struct semaphore_elem, elem)->semaphore);
+        sema_up(
+                &list_entry (list_pop_front(&cond->waiters),
+                             struct semaphore_elem, elem)->semaphore
+        );
     }
 }
 
@@ -370,22 +403,7 @@ cond_broadcast(struct condition *cond, struct lock *lock) {
     ASSERT (cond != NULL);
     ASSERT (lock != NULL);
 
-    while (!list_empty(&cond->waiters))
+    while (!list_empty(&cond->waiters)) {
         cond_signal(cond, lock);
-}
-
-/*
- * Add lock to donatee's list of donators.
- * Set donator's donatee field.
- */
-static void
-donate_priority(struct thread *donator, struct lock *lock) {
-    struct thread *donatee = lock->holder;
-    struct hash *donators = &donatee->priority.donators;
-
-    // Set donator's donatee field
-    donator->priority.donatee = donatee;
-
-
-    // Subsequent sema_down() call in lock_acquire() will modify the list of waiting threads
+    }
 }
