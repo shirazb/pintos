@@ -208,9 +208,9 @@ lock_acquire(struct lock *lock) {
     lock->holder = curr;
 
     if (lock->holder == NULL) {
-        thread_start_receiving_donations_from(lock);
+        thread_add_lock_as_donator(curr, lock);
     } else {
-        thread_set_donatee(lock->holder);
+        thread_set_donatee(curr, lock->holder);
     }
 
     sema_down(&lock->semaphore);
@@ -246,7 +246,34 @@ lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread(lock));
 
+
+    // remove lock from holder's hashmap.
+    thread_remove_lock_from_donators(lock);
     lock->holder = NULL;
+
+    struct thread *to_be_woken = NULL;
+
+    // Tell head of waiters list to start receiving donations from lock
+    struct list *waiters = &lock->semaphore.waiters.list;
+    if (!list_empty(waiters)) {
+         to_be_woken = list_entry(
+                list_front(waiters),
+                struct thread,
+                elem
+        );
+
+        thread_add_lock_as_donator(to_be_woken, lock);
+    }
+
+    // Set each of waiter's tail's donatee members to to_be_woken
+    struct list_elem *still_waiting = list_tail(waiters);
+    for (; still_waiting != list_end(waiters); still_waiting = list_next(still_waiting)) {
+        struct thread *waiting_thread = list_entry(still_waiting, struct thread, elem);
+
+        // to_be_woken will be NULL if waiters was empty
+        thread_set_donatee(waiting_thread, to_be_woken);
+    }
+
     sema_up(&lock->semaphore);
 }
 

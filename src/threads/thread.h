@@ -155,7 +155,8 @@ int thread_get_load_avg (void);
 bool order_by_priority(const struct list_elem *a, const struct
         list_elem *b, void *aux UNUSED);
 int thread_effective_priority(struct thread *t);
-void thread_start_receiving_donations_from(struct lock *lock);
-void thread_set_donatee(struct thread *t);
+void thread_add_lock_as_donator(struct thread *t, struct lock *lock);
+void thread_remove_lock_from_donators(struct lock *lock);
+void thread_set_donatee(struct thread *t, struct thread *donatee);
 
 #endif /* threads/thread.h */

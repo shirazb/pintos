@@ -420,6 +420,8 @@ thread_get_recent_cpu(void) {
  */
 int
 thread_effective_priority(struct thread *t) {
+    ASSERT(t != NULL);
+
     int effective_priority = t->priority.base;
 
     // If top_donater's priority is higher than t's actual priority, set effective to that.
@@ -437,22 +439,33 @@ thread_effective_priority(struct thread *t) {
 
 /*
  * Tells the thread to receive donations from threads acquiring the lock.
- * Current thread must be holder of the lock.
+ * The thread must (now) be holder of the lock.
  */
 void
-thread_start_receiving_donations_from(struct lock *lock) {
+thread_add_lock_as_donator(struct thread *t, struct lock *lock) {
     ASSERT(lock != NULL);
     ASSERT(lock_held_by_current_thread(lock));
 
-    hash_insert(&thread_current()->priority.donators, &lock->elem);
+    hash_insert(&t->priority.donators, &lock->elem);
 }
 
 /*
- * Marks the current thread as the donatee of the given thread.
+ * Tells the current thread to remove the lock from its hash table of donators.
  */
 void
-thread_set_donatee(struct thread *t) {
-    thread_current()->priority.donatee = t;
+thread_remove_lock_from_donators(struct lock *lock) {
+    ASSERT(lock != NULL);
+
+    hash_delete(&thread_current()->priority.donators, &lock->elem);
+}
+
+/*
+ * Marks the thread as the donatee of the given thread.
+ */
+void
+thread_set_donatee(struct thread *t, struct thread *donatee) {
+    ASSERT(t != NULL);
+    t->priority.donatee = donatee;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
