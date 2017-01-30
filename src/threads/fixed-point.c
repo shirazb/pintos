@@ -2,6 +2,8 @@
 
 #include "threads/fixed-point.h"
 
+const int F = 1 << 14;
+
 inline fixed_point_t CAST_INT_TO_FP(int n) {
     return n * F;
 }
