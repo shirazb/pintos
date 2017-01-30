@@ -392,7 +392,9 @@ thread_get_priority(void) {
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice(int nice) {
-    thread_current()->nice = nice;
+    struct thread *curr = thread_current();
+    curr->nice = nice;
+    curr->priority.base = PRI_MAX - (thread_get_recent_cpu() / 4) - (nice * 2);
 }
 
 /* Returns the current thread's nice value. */
