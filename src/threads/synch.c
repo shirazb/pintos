@@ -210,6 +210,11 @@ lock_acquire(struct lock *lock) {
         thread_add_lock_as_donator(curr, lock);
     } else {
         thread_set_donatee(curr, lock->holder);
+        // CHANGES PRIORITY OF lock->holder
+        // SHOULD WE RESORT?
+        // If holder is running, do nothing
+        // If holder is ready, resort ready list
+        // If holder is asleep, resort waiters list
     }
 
     sema_down(&lock->semaphore);

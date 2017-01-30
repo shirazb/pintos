@@ -380,8 +380,6 @@ thread_set_priority(int new_priority) {
         thread_yield();
     }
 
-    // RESORT READY LIST
-
 //    printf("---DEBUG: Set priority of thread %s to %d", curr_thread->name, thread_effective_priority(curr_thread));
 }
 
@@ -486,7 +484,14 @@ thread_remove_lock_from_donators(struct lock *lock) {
 void
 thread_set_donatee(struct thread *t, struct thread *donatee) {
     ASSERT(t != NULL);
-    t->priority.donatee = donatee;
+      t->priority.donatee = donatee;
+
+    // Func starts here:
+    // If donatee is running (so donatee has no donatee)
+    //     resort ready list
+    // If donatee is blocked and has its own donatee
+    //     resort lock's waiters list that donatee is waiting on
+    //     Recurse on donatee's donatee
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.

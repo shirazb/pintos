@@ -13,6 +13,7 @@ struct ordered_list {
 void ordered_list_init(struct ordered_list *, list_less_func *, void *aux);
 
 void ordered_list_resort(struct ordered_list *);
+void ordered_list_reinsert(struct ordered_list *ol, struct list_elem *elem);
 
 void ordered_list_insert(struct ordered_list *, struct list_elem *);
 struct list_elem *ordered_list_front(struct ordered_list *);
