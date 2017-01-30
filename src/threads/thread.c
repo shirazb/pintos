@@ -81,8 +81,6 @@ static tid_t allocate_tid(void);
 
 static void priority_init(struct priority *priority, int actual_priority);
 
-static void update_donatee_thread_queue(struct thread *t);
-
 /* Initializes the threading system by transforming the code
   that's currently running into a thread.  This can't work in
   general and it is possible in this case only because loader.S
@@ -484,16 +482,9 @@ thread_remove_lock_from_donators(struct lock *lock) {
 inline void
 thread_set_donatee(struct thread *t, struct thread *donatee) {
     ASSERT(t != NULL);
+    ASSERT(donatee != NULL);
 
     t->priority.donatee = donatee;
-
-    // Func starts here:
-    // If donatee is running (so donatee has no donatee)
-    //     resort ready list
-    // If donatee is blocked and has its own donatee
-    //     resort lock's waiters list that donatee is waiting on
-    //     Recurse on donatee's donatee
-    update_donatee_thread_queue(donatee);
 }
 
 /*
@@ -511,6 +502,37 @@ thread_mark_waiting_on(struct lock *lock) {
 inline void
 thread_mark_no_longer_waiting(void) {
     thread_current()->priority.lock_waiting_on = NULL;
+}
+
+/*
+ * Reorders the thread queue that the donatee is in (ready list or waiters
+ * list of a semaphore). Recursively does the same to its donatee, if it has
+ * one.
+ */
+void
+thread_update_thread_queue(struct thread *t) {
+    ASSERT(t != NULL);
+
+    struct lock *lock_waiting_on = t->priority.lock_waiting_on;
+
+    switch (t->status) {
+    case THREAD_READY:
+        ordered_list_reinsert(&ready_list, &t->elem);
+        break;
+
+    case THREAD_BLOCKED:
+        if (lock_waiting_on != NULL) {
+            ordered_list_reinsert(
+                    lock_get_waiters(lock_waiting_on),
+                    &t->elem
+            );
+            thread_update_thread_queue(t->priority.donatee);
+        }
+        break;
+
+    default:
+        break;
+    }
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -735,33 +757,4 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
 
     return thread_effective_priority(thread_a) >
            thread_effective_priority(thread_b);
-}
-
-/*
- * Reorders the thread queue that the donatee is in (ready list or waiters
- * list of a semaphore). Recursively does the same to its donatee, if it has
- * one.
- */
-static void
-update_donatee_thread_queue(struct thread *t) {
-    struct lock *lock_waiting_on = t->priority.lock_waiting_on;
-
-    switch (t->status) {
-    case THREAD_READY:
-        ordered_list_reinsert(&ready_list, &t->elem);
-        break;
-
-    case THREAD_BLOCKED:
-        if (lock_waiting_on != NULL) {
-            ordered_list_reinsert(
-                    lock_get_waiters(lock_waiting_on),
-                    &t->elem
-            );
-            update_donatee_thread_queue(t->priority.donatee);
-        }
-        break;
-
-    default:
-        break;
-    }
 }

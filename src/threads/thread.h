@@ -157,5 +157,6 @@ void thread_remove_lock_from_donators(struct lock *lock);
 void thread_set_donatee(struct thread *t, struct thread *donatee);
 void thread_mark_no_longer_waiting(void);
 void thread_mark_waiting_on(struct lock *lock);
+void thread_update_thread_queue(struct thread *t);
 
 #endif /* threads/thread.h */

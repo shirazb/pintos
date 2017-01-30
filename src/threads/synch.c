@@ -210,13 +210,8 @@ lock_acquire(struct lock *lock) {
         thread_add_lock_as_donator(curr, lock);
     } else {
         thread_mark_waiting_on(lock);
-        // thread_current()->priority.waiting_on_lock = lock;
+        ASSERT(thread_current()->priority.donatee == NULL);
         thread_set_donatee(curr, lock->holder);
-        // CHANGES PRIORITY OF lock->holder
-        // SHOULD WE RESORT?
-        // If holder is running, do nothing
-        // If holder is ready, resort ready list
-        // If holder is asleep, resort waiters list
     }
 
     sema_down(&lock->semaphore);
@@ -270,17 +265,19 @@ lock_release(struct lock *lock) {
         );
 
         thread_add_lock_as_donator(to_be_woken, lock);
-    }
 
-    // Set each of waiter's tail's donatee members to to_be_woken
-    struct list_elem *still_waiting = list_tail(&waiters->list);
-    for (; still_waiting != list_end(&waiters->list);
-           still_waiting = list_next(still_waiting)) {
-        struct thread *waiting_thread = list_entry(still_waiting, struct thread,
-                                                   elem);
+        // Set each of waiter's tail's donatee members to to_be_woken
+        struct list_elem *still_waiting = list_next(&to_be_woken->elem);
+        for (; still_waiting != list_end(&waiters->list);
+               still_waiting = list_next(still_waiting)) {
+            struct thread *waiting_thread = list_entry(still_waiting, struct thread,
+                                                       elem);
 
-        // to_be_woken will be NULL if waiters was empty
-        thread_set_donatee(waiting_thread, to_be_woken);
+            ASSERT(waiting_thread->priority.donatee == thread_current());
+            thread_set_donatee(waiting_thread, to_be_woken);
+        }
+
+        thread_update_thread_queue(to_be_woken);
     }
 
     sema_up(&lock->semaphore);

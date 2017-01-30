@@ -25,12 +25,12 @@ ordered_list_reinsert(struct ordered_list *ol, struct list_elem *elem) {
     ASSERT(removed != NULL);
     list_insert_ordered(&ol->list, elem, ol->less, ol->aux);
 }
-
+/*
 void
 ordered_list_resort(struct ordered_list *ol) {
     ASSERT(ol != NULL);
     list_sort(&ol->list, ol->less, NULL);
-}
+}*/
 
 void
 ordered_list_insert(struct ordered_list *ol, struct list_elem *elem) {
