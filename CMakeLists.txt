@@ -67,6 +67,8 @@ set(SOURCE_FILES
     src/lib/kernel/hash.h
     src/lib/kernel/list.c
     src/lib/kernel/list.h
+    src/lib/kernel/ordered_list.c
+    src/lib/kernel/ordered_list.h
     src/lib/kernel/stdio.h
     src/lib/user/console.c
     src/lib/user/debug.c
@@ -276,6 +278,8 @@ set(SOURCE_FILES
     src/threads/palloc.c
     src/threads/palloc.h
     src/threads/pte.h
+    src/threads/sleep_desc.c
+    src/threads/sleep_desc.h
     src/threads/switch.h
     src/threads/synch.c
     src/threads/synch.h
