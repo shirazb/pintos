@@ -310,7 +310,6 @@ thread_exit(void) {
     intr_disable();
     list_remove(&thread_current()->allelem);
     thread_current()->status = THREAD_DYING;
-    hash_destroy(&thread_current()->priority.donators, NULL);
     schedule();
     NOT_REACHED ();
 }
@@ -428,16 +427,14 @@ thread_effective_priority(struct thread *t) {
     int base_priority = t->priority.base;
     int donated_priority = PRI_MIN - 1;
 
-    // Get the top donator
-    struct hash_iterator iter;
-    hash_first(&iter, &t->priority.donators);
-    struct hash_elem *e;
+    struct list_elem *e;
     struct lock *acquired_lock;
+    struct list *locks = &t->priority.donators;
     struct ordered_list *donators;
 
-    // Iterate over acquired lock
-    while ((e = hash_next(&iter))) {
-        acquired_lock = hash_entry(e, struct lock, elem);
+    // Iterate over acquired locks
+    for (e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
+        acquired_lock = list_entry(e, struct lock, elem);
         donators = &acquired_lock->semaphore.waiters;
 
         // Set donated_priority to max of donated_priority and head of lock's
@@ -467,9 +464,8 @@ thread_effective_priority(struct thread *t) {
 void
 thread_add_lock_as_donator(struct thread *t, struct lock *lock) {
     ASSERT(lock != NULL);
-    ASSERT(lock_held_by_current_thread(lock));
 
-    hash_insert(&t->priority.donators, &lock->elem);
+    list_push_front(&t->priority.donators, &lock->elem);
 }
 
 /*
@@ -479,7 +475,7 @@ void
 thread_remove_lock_from_donators(struct lock *lock) {
     ASSERT(lock != NULL);
 
-    hash_delete(&thread_current()->priority.donators, &lock->elem);
+    list_remove(&lock->elem);
 }
 
 /*
@@ -585,7 +581,7 @@ static void priority_init(struct priority *priority, int actual_priority) {
 
     priority->base = actual_priority;
     priority->donatee = NULL;
-    hash_init(&priority->donators, lock_hash_code, lock_hash_less, NULL);
+    list_init(&priority->donators);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

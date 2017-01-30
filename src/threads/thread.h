@@ -3,7 +3,6 @@
 
 #include <debug.h>
 #include <ordered_list.h>
-#include <hash.h>
 #include <stdint.h>
 #include <threads/synch.h>
 #include <threads/sleep_desc.h>
@@ -11,7 +10,8 @@
 struct priority {
     int base;                        /* Base priority */
     struct thread *donatee;          /* Thread being donated to */
-    struct hash donators;            /* HashTable<Lock>, whose waiters represent donators */
+    struct list donators;            /* ListLock>, whose waiters represent
+ * donators */
 };
 
 /* States in a thread's life cycle. */

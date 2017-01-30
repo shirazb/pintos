@@ -202,12 +202,9 @@ void
 lock_acquire(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (!intr_context());
-    printf("--- DEBUG: Thread \'%s\' acquiring lock %d",
-           thread_current()->name, lock_hash_code(&lock->elem, NULL));
     ASSERT (!lock_held_by_current_thread(lock));
 
     struct thread *curr = thread_current();
-    lock->holder = curr;
 
     if (lock->holder == NULL) {
         thread_add_lock_as_donator(curr, lock);
@@ -216,6 +213,7 @@ lock_acquire(struct lock *lock) {
     }
 
     sema_down(&lock->semaphore);
+    lock->holder = curr;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -246,10 +244,7 @@ lock_try_acquire(struct lock *lock) {
 void
 lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
-    printf("--- DEBUG: Thread \'%s\' releasing lock %d",
-           thread_current()->name, lock_hash_code(&lock->elem, NULL));
     ASSERT (lock_held_by_current_thread(lock));
-
 
     // remove lock from holder's hashmap.
     thread_remove_lock_from_donators(lock);
@@ -291,31 +286,6 @@ lock_held_by_current_thread(const struct lock *lock) {
     ASSERT (lock != NULL);
 
     return lock->holder == thread_current();
-}
-
-/*
- * Generate hash code for locks. Prime numbers were picked arbitrarily.
- */
-unsigned
-lock_hash_code(const struct hash_elem *e, void *aux UNUSED) {
-    struct lock *lock = hash_entry(e, struct lock, elem);
-
-//    return hash_bytes(lock, sizeof(struct lock)) * 683 ^
-//           hash_bytes(&lock->semaphore, sizeof(struct semaphore)) * 997 ^
-//           hash_bytes(&lock->elem, sizeof(struct hash_elem)) * 991 ^
-//           hash_bytes(lock->holder, sizeof(struct thread)) * 773;
-    return (unsigned) lock;
-}
-
-/*
- * Compares two locks, ordering them by less than.
- */
-bool
-lock_hash_less(const struct hash_elem *a, const struct hash_elem *b,
-               void *aux UNUSED) {
-    struct lock *lock_a = hash_entry(a, struct lock, elem);
-    struct lock *lock_b = hash_entry(b, struct lock, elem);
-    return lock_a < lock_b;
 }
 
 /* One semaphore in a list. */
