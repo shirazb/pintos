@@ -98,6 +98,8 @@ struct thread {
 
     struct priority priority;           /* Priority. */
 
+    int nice;                           /* Niceness value */
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
