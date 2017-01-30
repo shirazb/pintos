@@ -261,10 +261,10 @@ lock_release(struct lock *lock) {
     struct thread *to_be_woken = NULL;
 
     // Tell head of waiters list to start receiving donations from lock
-    struct list *waiters = &lock->semaphore.waiters.list;
-    if (!list_empty(waiters)) {
+    struct ordered_list *waiters = lock_get_waiters(lock);
+    if (!ordered_list_empty(waiters)) {
         to_be_woken = list_entry(
-                list_front(waiters),
+                ordered_list_front(waiters),
                 struct thread,
                 elem
         );
@@ -273,8 +273,8 @@ lock_release(struct lock *lock) {
     }
 
     // Set each of waiter's tail's donatee members to to_be_woken
-    struct list_elem *still_waiting = list_tail(waiters);
-    for (; still_waiting != list_end(waiters);
+    struct list_elem *still_waiting = list_tail(&waiters->list);
+    for (; still_waiting != list_end(&waiters->list);
            still_waiting = list_next(still_waiting)) {
         struct thread *waiting_thread = list_entry(still_waiting, struct thread,
                                                    elem);

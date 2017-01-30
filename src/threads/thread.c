@@ -437,7 +437,7 @@ thread_effective_priority(struct thread *t) {
     // Iterate over acquired locks
     for (e = list_begin(locks); e != list_end(locks); e = list_next(e)) {
         acquired_lock = list_entry(e, struct lock, elem);
-        donators = &acquired_lock->semaphore.waiters;
+        donators = lock_get_waiters(acquired_lock);
 
         // Set donated_priority to max of donated_priority and head of lock's
         // waiters.
