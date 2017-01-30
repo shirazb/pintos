@@ -10,8 +10,8 @@
 struct priority {
     int base;                        /* Base priority */
     struct thread *donatee;          /* Thread being donated to */
-    struct list donators;            /* ListLock>, whose waiters represent
- * donators */
+    struct list acquired_locks;      /* List<Lock>, whose waiters represent donators */
+    struct lock *lock_waiting_on;    /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
 };
 
 /* States in a thread's life cycle. */
@@ -155,5 +155,7 @@ int thread_effective_priority(struct thread *t);
 void thread_add_lock_as_donator(struct thread *t, struct lock *lock);
 void thread_remove_lock_from_donators(struct lock *lock);
 void thread_set_donatee(struct thread *t, struct thread *donatee);
+void thread_mark_no_longer_waiting(void);
+void thread_mark_waiting_on(struct lock *lock);
 
 #endif /* threads/thread.h */

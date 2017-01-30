@@ -209,6 +209,8 @@ lock_acquire(struct lock *lock) {
     if (lock->holder == NULL) {
         thread_add_lock_as_donator(curr, lock);
     } else {
+        thread_mark_waiting_on(lock);
+        // thread_current()->priority.waiting_on_lock = lock;
         thread_set_donatee(curr, lock->holder);
         // CHANGES PRIORITY OF lock->holder
         // SHOULD WE RESORT?
@@ -219,6 +221,7 @@ lock_acquire(struct lock *lock) {
 
     sema_down(&lock->semaphore);
     lock->holder = curr;
+    thread_mark_no_longer_waiting();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -251,7 +254,7 @@ lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread(lock));
 
-    // remove lock from holder's hashmap.
+    // remove lock from holder's acquired locks list.
     thread_remove_lock_from_donators(lock);
     lock->holder = NULL;
 
@@ -281,6 +284,14 @@ lock_release(struct lock *lock) {
     }
 
     sema_up(&lock->semaphore);
+}
+
+/*
+ * Returns a reference to the list of waiters of the lock.
+ */
+struct ordered_list *
+lock_get_waiters(struct lock *lock) {
+    return &lock->semaphore.waiters;
 }
 
 /* Returns true if the current thread holds LOCK, false
