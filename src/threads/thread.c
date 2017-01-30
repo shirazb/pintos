@@ -380,6 +380,8 @@ thread_set_priority(int new_priority) {
         thread_yield();
     }
 
+    // RESORT READY LIST
+
 //    printf("---DEBUG: Set priority of thread %s to %d", curr_thread->name, thread_effective_priority(curr_thread));
 }
 
