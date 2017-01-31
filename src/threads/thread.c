@@ -402,10 +402,6 @@ thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
               CAST_FP_TO_INT_ROUND_ZERO(DIV_FP_INT(thread->recent_cpu, 4)) -
               thread->nice * 2;
 
-
-//    new_actual_priority = new_actual_priority % (PRI_MAX - PRI_MIN + 1) +
-//                          PRI_MIN;
-
     if (new_actual_priority < PRI_MIN) new_actual_priority = PRI_MIN;
     if (new_actual_priority > PRI_MAX) new_actual_priority = PRI_MAX;
 
