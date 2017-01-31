@@ -40,11 +40,8 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* OS load average value */
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "ConstExpressionRequired"
-//fp_number load_avg;
-fp_number load_avg = CAST_INT_TO_FP(0);
-#pragma clang diagnostic pop
+fixed_point_t load_avg;
+//fixed_point_t load_avg = CAST_INT_TO_FP(0);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -107,6 +104,8 @@ void
 thread_init(void) {
     ASSERT(intr_get_level() == INTR_OFF);
 
+    load_avg = CAST_INT_TO_FP(0);
+
     lock_init(&tid_lock);
     ordered_list_init(&ready_list, order_by_priority, NULL);
     list_init(&all_list);
@@ -145,18 +144,32 @@ thread_tick(void) {
         idle_ticks++;
     }
 #ifdef USERPROG
+
         else if (t->pagedir != NULL)
           user_ticks++;
+
+        if (thread_mlfqs) {
+            t->recent_cpu = ADD_FP_INT(t->recent_cpu, 1);
+        }
+
 #endif
     else {
         kernel_ticks++;
 
-        t->recent_cpu++;
+        if (thread_mlfqs) {
+            t->recent_cpu = ADD_FP_INT(t->recent_cpu, 1);
+        }
 
     }
 
     /* Enforce preemption. */
     if (++thread_ticks >= TIME_SLICE) {
+
+        if (thread_mlfqs && t != idle_thread) {
+            thread_recalculate_priority(t, NULL);
+            thread_resort_ready_list();
+        }
+
         intr_yield_on_return();
     }
 }
@@ -227,6 +240,8 @@ thread_create(const char *name, int priority,
     sf->eip = switch_entry;
     sf->ebp = 0;
 
+    t->nice = thread_current()->nice;
+
     intr_set_level(old_level);
 
     /* Add to run queue. */
@@ -272,6 +287,7 @@ thread_unblock(struct thread *t) {
     ASSERT(t->status == THREAD_BLOCKED);
 
     ordered_list_insert(&ready_list, &t->elem);
+
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -377,6 +393,51 @@ thread_foreach(thread_action_func *func, void *aux) {
     }
 }
 
+
+void
+thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
+
+    int new_actual_priority
+            = PRI_MAX -
+              CAST_FP_TO_INT_ROUND_ZERO(DIV_FP_INT(thread->recent_cpu, 4)) -
+              thread->nice * 2;
+
+
+    new_actual_priority = new_actual_priority % (PRI_MAX - PRI_MIN + 1) +
+                          PRI_MIN;
+
+    priority_init(&thread->priority, new_actual_priority);
+
+}
+
+void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
+
+    //(2 * load_avg) / (2 * load_avg + 1) * recent_cpu + thread->nice
+
+    fp_number old_cpu = thread->recent_cpu;
+
+    fp_number new_cpu = MUL_FP_INT(load_avg, 2);
+    new_cpu = DIV_FP_FP(new_cpu, ADD_FP_INT(new_cpu, 1));
+    new_cpu = MUL_FP_FP(new_cpu, old_cpu);
+    new_cpu = ADD_FP_INT(new_cpu, thread->nice);
+
+    thread->recent_cpu = new_cpu;
+
+}
+
+void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED) {
+
+    //(59/60) * load_avg + (1/60) * ready_threads
+
+    int running_threads = thread_current () == idle_thread ? 0 : 1;
+
+    load_avg =  MUL_FP_FP(DIV_FP_INT(CAST_INT_TO_FP(59), 60), load_avg);
+
+    load_avg += MUL_FP_INT(DIV_FP_INT(CAST_INT_TO_FP(1), 60),
+                           ordered_list_size(&ready_list) + running_threads);
+
+}
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority(int new_priority) {
@@ -407,6 +468,7 @@ thread_set_nice(int nice) {
     struct thread *curr = thread_current();
     curr->nice = nice;
     thread_recalculate_priority(curr, NULL);
+    thread_resort_ready_list();
 }
 
 /* Returns the current thread's nice value. */
@@ -419,7 +481,11 @@ thread_get_nice(void) {
 int
 thread_get_load_avg(void) {
 
-    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(load_avg, 100));
+    int i = CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(load_avg, 100));
+    if (i > 50) {
+        printf("%d", i);
+    }
+    return i;
 
 }
 
@@ -638,60 +704,13 @@ init_thread(struct thread *t, const char *name, int priority) {
     }
 
     t->sleep_desc = NULL;
-    t->recent_cpu = 0;
+    t->recent_cpu = CAST_INT_TO_FP(0);
     t->nice = 0;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);
     intr_set_level(old_level);
-}
-
-void
-thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
-
-    int new_actual_priority
-            = PRI_MAX -
-              CAST_FP_TO_INT_ROUND_ZERO(DIV_FP_INT(thread->recent_cpu, 4)) -
-              thread->nice * 2;
-
-    if (new_actual_priority > PRI_MAX) {
-
-        new_actual_priority = PRI_MAX;
-
-    } else if (new_actual_priority < PRI_MIN) {
-
-        new_actual_priority = PRI_MIN;
-
-    }
-
-    priority_init(&thread->priority, new_actual_priority);
-
-}
-
-void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
-
-    //(2 * load_avg) / (2 * load_avg + 1) * recent_cpu + thread->nice
-
-    fp_number recent_cpu = thread->recent_cpu;
-    fp_number new_cpu = MUL_FP_INT(load_avg, 2);
-    new_cpu = DIV_FP_FP(new_cpu, ADD_FP_INT(new_cpu, 1));
-    new_cpu = MUL_FP_FP(new_cpu, recent_cpu);
-    new_cpu = ADD_FP_INT(new_cpu, thread->nice);
-
-    thread->recent_cpu = new_cpu;
-
-}
-
-void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED) {
-
-    //(59/60) * load_avg + (1/60) * ready_threads
-
-    int running_threads = thread_current() != idle_thread;
-    load_avg =  MUL_FP_FP(DIV_FP_INT(CAST_INT_TO_FP(59), 60), load_avg);
-    load_avg += MUL_FP_INT(DIV_FP_INT(CAST_INT_TO_FP(1), 60),
-                           ordered_list_size(&ready_list) + running_threads);
-
 }
 
 static void priority_init(struct priority *priority, int actual_priority) {
@@ -702,6 +721,10 @@ static void priority_init(struct priority *priority, int actual_priority) {
     priority->donatee = NULL;
     priority->lock_waiting_on = NULL;
     list_init(&priority->acquired_locks);
+}
+
+void thread_resort_ready_list(void) {
+    ordered_list_resort(&ready_list);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

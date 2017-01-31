@@ -183,8 +183,13 @@ timer_interrupt(struct intr_frame *args UNUSED) {
 
         //Don't think we need to do the next two lines every second. Need to do
         //  them every 4 ticks instead.
-        //thread_foreach(thread_recalculate_priority, NULL);
-        //update ready list
+//        thread_foreach(thread_recalculate_priority, NULL);
+//        thread_resort_ready_list();
+    }
+
+    if (thread_mlfqs && (ticks % 4 == 0)) {
+        thread_foreach(thread_recalculate_priority, NULL);
+        thread_resort_ready_list();
     }
 
 }

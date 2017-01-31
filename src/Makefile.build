@@ -22,6 +22,7 @@ threads_SRC += threads/synch.c		  # Synchronization.
 threads_SRC += threads/palloc.c		  # Page allocator.
 threads_SRC += threads/malloc.c		  # Subpage allocator.
 threads_SRC += threads/sleep_desc.c   # Sleep descriptor for threads.
+threads_SRC += threads/fixed-point.c  # Fixed point number calculation.
 
 # Device driver code.
 devices_SRC  = devices/pit.c		# Programmable interrupt timer chip.
@@ -81,7 +82,7 @@ DEPENDS = $(patsubst %.o,%.d,$(OBJECTS))
 threads/kernel.lds.s: CPPFLAGS += -P
 threads/kernel.lds.s: threads/kernel.lds.S threads/loader.h
 
-kernel.o: threads/kernel.lds.s $(OBJECTS) 
+kernel.o: threads/kernel.lds.s $(OBJECTS)
 	$(LD) -T $< -o $@ $(OBJECTS)
 
 kernel.bin: kernel.o
@@ -97,9 +98,9 @@ os.dsk: kernel.bin
 	cat $^ > $@
 
 clean::
-	rm -f $(OBJECTS) $(DEPENDS) 
+	rm -f $(OBJECTS) $(DEPENDS)
 	rm -f threads/loader.o threads/kernel.lds.s threads/loader.d
-	rm -f kernel.bin.tmp
+	rm -f kernel.bin.tmpdi
 	rm -f kernel.o kernel.lds.s
 	rm -f kernel.bin loader.bin
 	rm -f bochsout.txt bochsrc.txt
