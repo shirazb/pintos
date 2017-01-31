@@ -180,7 +180,7 @@ timer_interrupt(struct intr_frame *args UNUSED) {
         //TODO
         //Update load average value
         //update each threads recent cpu
-        thread_foreach (thread_calculate_priority, NULL);
+        thread_foreach(thread_recalculate_priority, NULL);
         //update ready list
     }
 

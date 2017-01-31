@@ -166,6 +166,9 @@ void thread_mark_no_longer_waiting(void);
 void thread_mark_waiting_on(struct lock *lock);
 void thread_update_thread_queue(struct thread *t);
 
-void thread_calculate_priority(struct thread *thread, void *aux UNUSED);
+/* Recalculate values for mlfq */
+void thread_recalculate_priority(struct thread *thread, void *aux UNUSED);
+void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED);
+void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED);
 
 #endif /* threads/thread.h */

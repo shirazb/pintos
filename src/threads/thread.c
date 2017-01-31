@@ -624,7 +624,7 @@ init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
 
     if (thread_mlfqs) {
-        thread_calculate_priority(t);
+        thread_recalculate_priority(t, NULL);
     } else {
         priority_init(&t->priority, priority);
     }
@@ -639,8 +639,8 @@ init_thread(struct thread *t, const char *name, int priority) {
     intr_set_level(old_level);
 }
 
-static void
-thread_calculate_priority(struct thread *thread, void *aux UNUSED) {
+void
+thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
 
     int new_actual_priority
             = PRI_MAX -
@@ -659,6 +659,17 @@ thread_calculate_priority(struct thread *thread, void *aux UNUSED) {
 
     priority_init(&thread->priority, new_actual_priority);
 
+}
+
+void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
+
+    //TODO
+
+}
+
+void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED) {
+
+    //TODO
 }
 
 static void priority_init(struct priority *priority, int actual_priority) {
