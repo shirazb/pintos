@@ -54,3 +54,8 @@ bool ordered_list_empty(struct ordered_list *ol) {
     ASSERT(ol != NULL);
     return list_empty(&ol->list);
 }
+
+
+int ordered_list_size(struct ordered_list *ol) {
+    return list_size(&ol);
+}

@@ -20,5 +20,6 @@ struct list_elem *ordered_list_front(struct ordered_list *);
 struct list_elem *ordered_list_pop_front(struct ordered_list *);
 
 bool ordered_list_empty(struct ordered_list *);
+int ordered_list_size(struct ordered_list *);
 
 #endif //PINTOS_36_THREAD_QUEUE_H

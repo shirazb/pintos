@@ -40,8 +40,11 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* OS load average value */
-fixed_point_t load_avg;
-//TODO: fixed_point_t load_average = CAST_INT_TO_FP(0);
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "ConstExpressionRequired"
+//fp_number load_avg;
+fp_number load_avg = CAST_INT_TO_FP(0);
+#pragma clang diagnostic pop
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -147,6 +150,9 @@ thread_tick(void) {
 #endif
     else {
         kernel_ticks++;
+
+        t->recent_cpu++;
+
     }
 
     /* Enforce preemption. */
@@ -400,7 +406,7 @@ void
 thread_set_nice(int nice) {
     struct thread *curr = thread_current();
     curr->nice = nice;
-    thread_set_priority(PRI_MAX - (thread_get_recent_cpu() / 4) - (nice * 2));
+    thread_recalculate_priority(curr, NULL);
 }
 
 /* Returns the current thread's nice value. */
@@ -665,13 +671,27 @@ thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
 
 void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
 
-    //TODO
+    //(2 * load_avg) / (2 * load_avg + 1) * recent_cpu + thread->nice
+
+    fp_number recent_cpu = thread->recent_cpu;
+    fp_number new_cpu = MUL_FP_INT(load_avg, 2);
+    new_cpu = DIV_FP_FP(new_cpu, ADD_FP_INT(new_cpu, 1));
+    new_cpu = MUL_FP_FP(new_cpu, recent_cpu);
+    new_cpu = ADD_FP_INT(new_cpu, thread->nice);
+
+    thread->recent_cpu = new_cpu;
 
 }
 
 void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED) {
 
-    //TODO
+    //(59/60) * load_avg + (1/60) * ready_threads
+
+    int running_threads = thread_current() != idle_thread;
+    load_avg =  MUL_FP_FP(DIV_FP_INT(CAST_INT_TO_FP(59), 60), load_avg);
+    load_avg += MUL_FP_INT(DIV_FP_INT(CAST_INT_TO_FP(1), 60),
+                           ordered_list_size(&ready_list) + running_threads);
+
 }
 
 static void priority_init(struct priority *priority, int actual_priority) {
