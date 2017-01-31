@@ -175,8 +175,8 @@ timer_interrupt(struct intr_frame *args UNUSED) {
     thread_tick();
     wake_overslept_threads();
 
-    //Every 4 timer ticks, update the following
-    if (thread_mlfqs && ticks % TIMER_FREQ == 0) {
+    //Every second, update the following
+    if (thread_mlfqs && (ticks % TIMER_FREQ == 0)) {
         //TODO
         //Update load average value
         //update each threads recent cpu
