@@ -85,19 +85,20 @@ static tid_t allocate_tid(void);
 
 static void priority_init(struct priority *priority, int actual_priority);
 
+
 /* Initializes the threading system by transforming the code
-  that's currently running into a thread.  This can't work in
-  general and it is possible in this case only because loader.S
-  was careful to put the bottom of the stack at a page boundary.
+ that's currently running into a thread.  This can't work in
+ general and it is possible in this case only because loader.S
+ was careful to put the bottom of the stack at a page boundary.
 
-  Also initializes the run queue and the tid lock.
+ Also initializes the run queue and the tid lock.
 
-  After calling this function, be sure to initialize the page
-  allocator before trying to create any threads with
-  thread_create().
+ After calling this function, be sure to initialize the page
+ allocator before trying to create any threads with
+ thread_create().
 
-  It is not safe to call thread_current() until this function
-  finishes. */
+ It is not safe to call thread_current() until this function
+ finishes. */
 void
 thread_init(void) {
     ASSERT(intr_get_level() == INTR_OFF);
@@ -398,7 +399,7 @@ void
 thread_set_nice(int nice) {
     struct thread *curr = thread_current();
     curr->nice = nice;
-    curr->priority.base = PRI_MAX - (thread_get_recent_cpu() / 4) - (nice * 2);
+    thread_set_priority(PRI_MAX - (thread_get_recent_cpu() / 4) - (nice * 2));
 }
 
 /* Returns the current thread's nice value. */
@@ -621,7 +622,13 @@ init_thread(struct thread *t, const char *name, int priority) {
     t->status = THREAD_BLOCKED;
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
-    priority_init(&t->priority, priority);
+
+    if (thread_mlfqs) {
+        thread_calculate_priority(t);
+    } else {
+        priority_init(&t->priority, priority);
+    }
+
     t->sleep_desc = NULL;
     t->recent_cpu = 0;
     t->nice = 0;
@@ -630,6 +637,28 @@ init_thread(struct thread *t, const char *name, int priority) {
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);
     intr_set_level(old_level);
+}
+
+static void
+thread_calculate_priority(struct thread *thread, void *aux UNUSED) {
+
+    int new_actual_priority
+            = PRI_MAX -
+              CAST_FP_TO_INT_ROUND_ZERO(DIV_FP_INT(thread->recent_cpu, 4)) -
+              thread->nice * 2;
+
+    if (new_actual_priority > PRI_MAX) {
+
+        new_actual_priority = PRI_MAX;
+
+    } else if (new_actual_priority < PRI_MIN) {
+
+        new_actual_priority = PRI_MIN;
+
+    }
+
+    priority_init(&thread->priority, new_actual_priority);
+
 }
 
 static void priority_init(struct priority *priority, int actual_priority) {

@@ -166,4 +166,6 @@ void thread_mark_no_longer_waiting(void);
 void thread_mark_waiting_on(struct lock *lock);
 void thread_update_thread_queue(struct thread *t);
 
+void thread_calculate_priority(struct thread *thread, void *aux UNUSED);
+
 #endif /* threads/thread.h */

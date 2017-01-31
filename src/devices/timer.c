@@ -174,6 +174,16 @@ timer_interrupt(struct intr_frame *args UNUSED) {
     ticks++;
     thread_tick();
     wake_overslept_threads();
+
+    //Every 4 timer ticks, update the following
+    if (thread_mlfqs && ticks % TIMER_FREQ == 0) {
+        //TODO
+        //Update load average value
+        //update each threads recent cpu
+        thread_foreach (thread_calculate_priority, NULL);
+        //update ready list
+    }
+
 }
 
 /**
