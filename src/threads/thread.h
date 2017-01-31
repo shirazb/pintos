@@ -25,6 +25,10 @@ enum thread_status {
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
+
+/* Fixed point number typedef for clarity */
+typedef int fp_number;
+
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
 /* Thread priorities. */
@@ -98,6 +102,7 @@ struct thread {
 
     struct priority priority;           /* Priority. */
 
+    fp_number recent_cpu;               /* Recent CPU usage value */
     int nice;                           /* Niceness value */
 
     /* Shared between thread.c and synch.c. */

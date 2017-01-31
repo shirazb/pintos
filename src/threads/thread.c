@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "fixed-point.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -37,6 +38,9 @@ static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+/* OS load average value */
+//fp_number load_average = CAST_INT_TO_FP(0);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -407,6 +411,7 @@ thread_get_nice(void) {
 int
 thread_get_load_avg(void) {
     /* Not yet implemented. */
+    // return round_to_int(fp_int_mul(load_average, 100));
     return 0;
 }
 
@@ -414,6 +419,7 @@ thread_get_load_avg(void) {
 int
 thread_get_recent_cpu(void) {
     /* Not yet implemented. */
+    //return round_to_int(fp_int_mult(thread_current()->recent_cpu, 100));
     return 0;
 }
 
@@ -617,6 +623,8 @@ init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     priority_init(&t->priority, priority);
     t->sleep_desc = NULL;
+    t->recent_cpu = 0;
+    t->nice = 0;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();
