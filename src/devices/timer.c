@@ -170,17 +170,20 @@ timer_print_stats(void) {
 /* Timer interrupt handler. */
 static void
 timer_interrupt(struct intr_frame *args UNUSED) {
-    // NOT SURE OF THE ORDERING
+
     ticks++;
     thread_tick();
     wake_overslept_threads();
 
     //Every second, update the following
     if (thread_mlfqs && (ticks % TIMER_FREQ == 0)) {
-        //TODO
-        //Update load average value
-        //update each threads recent cpu
-        thread_foreach(thread_recalculate_priority, NULL);
+
+        thread_foreach(thread_recalculate_load_avg, NULL);
+        thread_foreach(thread_recalculate_recent_cpu, NULL);
+
+        //Don't think we need to do the next two lines every second. Need to do
+        //  them every 4 ticks instead.
+        //thread_foreach(thread_recalculate_priority, NULL);
         //update ready list
     }
 
