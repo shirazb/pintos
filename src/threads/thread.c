@@ -425,11 +425,11 @@ void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
 
 }
 
-void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED) {
+void thread_recalculate_load_avg(void) {
 
     //(59/60) * load_avg + (1/60) * ready_threads
 
-    int running_threads = thread_current () == idle_thread ? 0 : 1;
+    int running_threads = (thread_current() != idle_thread);
 
     load_avg =  MUL_FP_FP(DIV_FP_INT(CAST_INT_TO_FP(59), 60), load_avg);
 
@@ -468,7 +468,7 @@ thread_set_nice(int nice) {
     struct thread *curr = thread_current();
     curr->nice = nice;
     thread_recalculate_priority(curr, NULL);
-    thread_resort_ready_list();
+//    thread_resort_ready_list();
 }
 
 /* Returns the current thread's nice value. */
@@ -481,11 +481,7 @@ thread_get_nice(void) {
 int
 thread_get_load_avg(void) {
 
-    int i = CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(load_avg, 100));
-    if (i > 50) {
-        printf("%d", i);
-    }
-    return i;
+    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(load_avg, 100));
 
 }
 

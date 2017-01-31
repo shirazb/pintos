@@ -178,7 +178,7 @@ timer_interrupt(struct intr_frame *args UNUSED) {
     //Every second, update the following
     if (thread_mlfqs && (ticks % TIMER_FREQ == 0)) {
 
-        thread_foreach(thread_recalculate_load_avg, NULL);
+        thread_recalculate_load_avg();
         thread_foreach(thread_recalculate_recent_cpu, NULL);
 
         //Don't think we need to do the next two lines every second. Need to do

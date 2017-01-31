@@ -169,7 +169,7 @@ void thread_update_thread_queue(struct thread *t);
 /* Recalculate values for mlfq */
 void thread_recalculate_priority(struct thread *thread, void *aux UNUSED);
 void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED);
-void thread_recalculate_load_avg(struct thread *thread, void *aux UNUSED);
+void thread_recalculate_load_avg(void);
 
 void thread_resort_ready_list(void);
 
