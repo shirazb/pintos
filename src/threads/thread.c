@@ -40,7 +40,8 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* OS load average value */
-//fp_number load_average = CAST_INT_TO_FP(0);
+fixed_point_t load_avg;
+//TODO: fixed_point_t load_average = CAST_INT_TO_FP(0);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -411,17 +412,18 @@ thread_get_nice(void) {
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg(void) {
-    /* Not yet implemented. */
-    // return round_to_int(fp_int_mul(load_average, 100));
-    return 0;
+
+    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(load_avg, 100));
+
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu(void) {
-    /* Not yet implemented. */
-    //return round_to_int(fp_int_mult(thread_current()->recent_cpu, 100));
-    return 0;
+
+    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(thread_current()->recent_cpu,
+                                                   100));
+
 }
 
 /*
