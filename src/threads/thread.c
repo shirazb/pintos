@@ -403,8 +403,11 @@ thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
               thread->nice * 2;
 
 
-    new_actual_priority = new_actual_priority % (PRI_MAX - PRI_MIN + 1) +
-                          PRI_MIN;
+//    new_actual_priority = new_actual_priority % (PRI_MAX - PRI_MIN + 1) +
+//                          PRI_MIN;
+
+    if (new_actual_priority < PRI_MIN) new_actual_priority = PRI_MIN;
+    if (new_actual_priority > PRI_MAX) new_actual_priority = PRI_MAX;
 
     priority_init(&thread->priority, new_actual_priority);
 
