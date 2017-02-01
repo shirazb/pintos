@@ -16,7 +16,7 @@ ordered_list_init(struct ordered_list *ol, list_less_func *less, void *aux) {
  * Given an ordered_list whose single list_elem has become out of order,
  * puts it back in order by removal then ordered insertion.
  */
-// TODO: WRITE COMMENT HERE EXPLAINING WHY REMOVE/INSERT IS FASTER THAN SORT
+// TODO: WRITE IN DESIGN DOC EXPLAINING WHY REMOVE/INSERT IS FASTER THAN SORT
 void
 ordered_list_reinsert(struct ordered_list *ol, struct list_elem *elem) {
     ASSERT(ol != NULL);
@@ -25,12 +25,12 @@ ordered_list_reinsert(struct ordered_list *ol, struct list_elem *elem) {
     ASSERT(removed != NULL);
     list_insert_ordered(&ol->list, elem, ol->less, ol->aux);
 }
-/*
+
 void
 ordered_list_resort(struct ordered_list *ol) {
     ASSERT(ol != NULL);
     list_sort(&ol->list, ol->less, NULL);
-}*/
+}
 
 void
 ordered_list_insert(struct ordered_list *ol, struct list_elem *elem) {

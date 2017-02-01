@@ -114,6 +114,9 @@ sema_up(struct semaphore *sema) {
 
     old_level = intr_disable();
     if (!ordered_list_empty(&sema->waiters)) {
+        // Resort list - side effects may have occurred on priorities due to
+        // donation through locks.
+        ordered_list_resort(&sema->waiters);
         awoken_thread = list_entry (ordered_list_pop_front(&sema->waiters),
                                     struct thread, elem);
         ASSERT(awoken_thread != NULL);
@@ -212,6 +215,7 @@ lock_acquire(struct lock *lock) {
         thread_mark_waiting_on(lock);
         ASSERT(thread_current()->priority.donatee == NULL);
         thread_set_donatee(curr, lock->holder);
+        thread_update_thread_queue(lock->holder);
     }
 
     sema_down(&lock->semaphore);
@@ -314,7 +318,7 @@ void
 cond_init(struct condition *cond) {
     ASSERT (cond != NULL);
 
-    list_init(&cond->waiters);
+    ordered_list_init(&cond->waiters, order_by_priority, NULL);
 }
 
 /* Atomically releases LOCK and waits for COND to be signaled by
@@ -347,7 +351,7 @@ cond_wait(struct condition *cond, struct lock *lock) {
     ASSERT (lock_held_by_current_thread(lock));
 
     sema_init(&waiter.semaphore, 0);
-    list_push_back(&cond->waiters, &waiter.elem);
+    ordered_list_insert(&cond->waiters, &waiter.elem);
     lock_release(lock);
     sema_down(&waiter.semaphore);
     lock_acquire(lock);
@@ -367,9 +371,10 @@ cond_signal(struct condition *cond, struct lock *lock UNUSED) {
     ASSERT (!intr_context());
     ASSERT (lock_held_by_current_thread(lock));
 
-    if (!list_empty(&cond->waiters)) {
+    if (!ordered_list_empty(&cond->waiters)) {
+        ordered_list_resort(&cond->waiters);
         sema_up(
-                &list_entry (list_pop_front(&cond->waiters),
+                &list_entry (ordered_list_pop_front(&cond->waiters),
                              struct semaphore_elem, elem)->semaphore
         );
     }
@@ -386,7 +391,7 @@ cond_broadcast(struct condition *cond, struct lock *lock) {
     ASSERT (cond != NULL);
     ASSERT (lock != NULL);
 
-    while (!list_empty(&cond->waiters)) {
+    while (!ordered_list_empty(&cond->waiters)) {
         cond_signal(cond, lock);
     }
 }

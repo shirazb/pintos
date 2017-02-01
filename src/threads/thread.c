@@ -417,11 +417,14 @@ thread_get_recent_cpu(void) {
 }
 
 /*
- * If the thread has a donator, returns max(donated priority, actual priority). Else, returns actual priority.
+ * If the thread has a donator, returns max(donated priority, actual priority).
+ * Else, returns actual priority.
  */
 int
 thread_effective_priority(struct thread *t) {
     ASSERT(t != NULL);
+
+//    enum intr_level old_level = intr_disable();
 
     // Init base and donated priority
     int base_priority = t->priority.base;
@@ -453,6 +456,8 @@ thread_effective_priority(struct thread *t) {
             }
         }
     }
+
+//    intr_set_level(old_level);
 
     return donated_priority > base_priority ? donated_priority : base_priority;
 }

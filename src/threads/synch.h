@@ -36,7 +36,7 @@ struct ordered_list *lock_get_waiters(struct lock *);
 /* Condition variable. */
 struct condition 
   {
-    struct list waiters;        /* List of waiting semaphore_elems. */
+    struct ordered_list waiters;        /* List of waiting semaphore_elems. */
   };
 
 void cond_init (struct condition *);
