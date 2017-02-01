@@ -9,9 +9,9 @@
 
 struct priority {
     int base;                        /* Base priority */
-    struct thread *donatee;          /* Thread being donated to */
-    struct list acquired_locks;      /* List<Lock>, whose waiters represent donators */
-    struct lock *lock_waiting_on;    /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
+    int effective;                   /* Effective priority = max(base, top donation) */
+    struct list donating_locks;      /* List<Lock>, whose waiters represent donators */
+    struct lock *lock_blocked_by;    /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
 };
 
 /* States in a thread's life cycle. */
