@@ -175,18 +175,15 @@ timer_interrupt(struct intr_frame *args UNUSED) {
     thread_tick();
     wake_overslept_threads();
 
-    //Every second, update the following
+    //Recalculate load_avg and recent_cpu every second
     if (thread_mlfqs && (ticks % TIMER_FREQ == 0)) {
 
         thread_recalculate_load_avg();
         thread_foreach(thread_recalculate_recent_cpu, NULL);
 
-        //Don't think we need to do the next two lines every second. Need to do
-        //  them every 4 ticks instead.
-//        thread_foreach(thread_recalculate_priority, NULL);
-//        thread_resort_ready_list();
     }
 
+    //Recalculate every thread's priority every 4 ticks
     if (thread_mlfqs && (ticks % 4 == 0)) {
         thread_foreach(thread_recalculate_priority, NULL);
         thread_resort_ready_list();
