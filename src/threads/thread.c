@@ -633,9 +633,9 @@ static void priority_init(struct priority *priority, int actual_priority) {
     ASSERT(PRI_MIN <= actual_priority && actual_priority <= PRI_MAX);
 
     priority->base = actual_priority;
-    priority->donatee = NULL;
-    priority->lock_waiting_on = NULL;
-    list_init(&priority->acquired_locks);
+    priority->effective = actual_priority;
+    priority->lock_blocked_by = NULL;
+    list_init(&priority->donating_locks);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
