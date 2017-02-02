@@ -794,12 +794,16 @@ int get_max_donation_to(struct thread *t) {
 //        }
 //    }
 
+
     // Iterate over each donating thread. If their effective priority is higher
     // than the current max, set the max to their priority.
-    struct list *donors = &t->priority.donors;
     struct list_elem *e;
     struct thread *donor;
     int donation;
+
+    enum intr_level old_level = intr_disable();
+    struct list *donors = &t->priority.donors;
+
     for (e = list_begin(donors); e != list_end(donors); e = list_next(e)) {
         donor = list_entry(e, struct thread, donor_elem);
         donation = donor->priority.effective;
@@ -808,6 +812,8 @@ int get_max_donation_to(struct thread *t) {
             max_donation = donation;
         }
     }
+
+    intr_set_level(old_level);
 
     return max_donation;
 }

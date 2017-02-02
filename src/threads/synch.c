@@ -259,7 +259,7 @@ lock_release(struct lock *lock) {
 
     enum intr_level old_level = intr_disable();
 
-    // Remove lock from holder's acquired locks list.
+    // Thread is releasing; clear lock's holder.
     lock->holder = NULL;
 
     /* Have everything in the tail of the waiters list move their donation to
@@ -273,7 +273,6 @@ lock_release(struct lock *lock) {
                 elem
         );
 
-
         /* Revoke donations of all waiters.
          * Explicitly revoke the head's. Move the tails' donations to the
          * head */
@@ -281,6 +280,8 @@ lock_release(struct lock *lock) {
         struct thread *still_waiting;
         for (; e != list_end(&waiters->list); e = list_next(e)) {
             still_waiting = list_entry(e, struct thread, elem);
+
+            list_remove(&still_waiting->donor_elem);
             list_push_front(
                     &to_be_woken->priority.donors,
                     &still_waiting->donor_elem
@@ -324,7 +325,7 @@ lock_held_by_current_thread(const struct lock *lock) {
 struct semaphore_elem {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
-    int waiting_thread_priority;        /* Priority of thread using the condvar */
+    int waiting_thread_priority;        /* Priority of thread usinglock_acquire the condvar */
 };
 
 /* Initializes condition variable COND.  A condition variable
