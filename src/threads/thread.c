@@ -425,7 +425,7 @@ thread_get_recent_cpu(void) {
 
 /*
  * Recalculates the effective priority of a thread. This is computed by taking
- * the max priority from the highest priority threads of the donating_locks
+ * the max priority from the highest priority threads of the acquired_locks
  * and the base priority.
  * If t has a donatee, recursively recalculates the effective priority of it.
  */
@@ -592,7 +592,7 @@ static void init_priority(struct priority *priority, int actual_priority) {
     priority->base = actual_priority;
     priority->effective = actual_priority;
     priority->lock_blocked_by = NULL;
-    list_init(&priority->donating_locks);
+    list_init(&priority->acquired_locks);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -763,7 +763,7 @@ int get_max_donation(struct thread *t) {
 
     // Iterate over each acquired lock. Get the top donating threads effective
     // priority and compare that with the current max_donation.
-    struct list *donating_locks = &t->priority.donating_locks;
+    struct list *donating_locks = &t->priority.acquired_locks;
     struct list_elem *e = NULL;
     struct ordered_list *donating_threads = NULL;
     struct thread *top_donator = NULL;
