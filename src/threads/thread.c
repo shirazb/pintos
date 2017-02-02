@@ -5,6 +5,7 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/vaddr.h"
+#include "fixed-point.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
