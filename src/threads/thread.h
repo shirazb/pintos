@@ -8,10 +8,10 @@
 #include <threads/sleep_desc.h>
 
 struct priority {
-    int base;                        /* Base priority */
-    int effective;                   /* Effective priority = max(base, top donation) */
-    struct list acquired_locks;      /* List<Lock>, whose waiters represent donators */
-    struct lock *lock_blocked_by;    /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
+    int base;                      /* Base priority */
+    int effective;                 /* Effective priority = max(base, top donation) */
+    struct list donors;            /* List<Thread> that are the donators */
+    struct lock *lock_blocked_by;  /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
 };
 
 /* States in a thread's life cycle. */
@@ -97,6 +97,7 @@ struct thread {
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct priority priority;           /* Priority. */
+    struct list_elem donor_elem;        /* Add this thread to another's list of donors*/
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

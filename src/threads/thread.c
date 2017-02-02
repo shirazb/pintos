@@ -81,7 +81,7 @@ static tid_t allocate_tid(void);
 
 static void init_priority(struct priority *priority, int actual_priority);
 
-static int get_max_donation(struct thread *t);
+static int get_max_donation_to(struct thread *t);
 
 static void refresh_thread_queue(struct thread *t);
 
@@ -380,7 +380,7 @@ thread_set_priority(int new_priority) {
     curr_thread->priority.base = new_priority;
     thread_recalculate_effective_priority(curr_thread);
 
-    // May have to yield if base priority has increased. Although yield only
+    // May have to yield if base priority has increased. NB: Although yield only
     // must occur if base has become higher than effective, we leave that logic
     // to thread_yield().
     if (new_priority < old_priority) {
@@ -434,7 +434,7 @@ thread_recalculate_effective_priority(struct thread *t) {
     ASSERT(t != NULL);
 
     // Set effective priority of t.
-    int max_donation = get_max_donation(t);
+    int max_donation = get_max_donation_to(t);
     int base_priority = t->priority.base;
     t->priority.effective = max_donation > base_priority ?
                             max_donation :
@@ -592,7 +592,7 @@ static void init_priority(struct priority *priority, int actual_priority) {
     priority->base = actual_priority;
     priority->effective = actual_priority;
     priority->lock_blocked_by = NULL;
-    list_init(&priority->acquired_locks);
+    list_init(&priority->donors);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
@@ -744,7 +744,7 @@ refresh_thread_queue(struct thread *t) {
             ordered_list_reinsert(
                     lock_get_waiters(lock_blocked_by),
                     &t->elem
-                                 );
+            );
         }
 
     default:
@@ -756,38 +756,53 @@ refresh_thread_queue(struct thread *t) {
  * Returns the maximum priority donated by one of the threads waiting on t to
  * release a lock.
  */
-int get_max_donation(struct thread *t) {
+int get_max_donation_to(struct thread *t) {
     ASSERT(t != NULL);
 
     int max_donation = PRI_MIN - 1;
 
-    // Iterate over each acquired lock. Get the top donating threads effective
-    // priority and compare that with the current max_donation.
-    struct list *donating_locks = &t->priority.acquired_locks;
-    struct list_elem *e = NULL;
-    struct ordered_list *donating_threads = NULL;
-    struct thread *top_donator = NULL;
-    int top_donation = 0;
-    for (e = list_begin(donating_locks);
-         e != list_end(donating_locks);
-         e = list_next(e)) {
-        // Get lock's list of donating threads
-        donating_threads = lock_get_waiters(
-                list_entry(e, struct lock, acquired_elem)
-                                           );
+//    // Iterate over each acquired lock. Get the top donating threads effective
+//    // priority and compare that with the current max_donation.
+//    struct list *donating_locks = &t->priority.acquired_locks;
+//    struct list_elem *e = NULL;
+//    struct ordered_list *donating_threads = NULL;
+//    struct thread *top_donator = NULL;
+//    int top_donation = 0;
+//    for (e = list_begin(donating_locks);
+//         e != list_end(donating_locks);
+//         e = list_next(e)) {
+//        // Get lock's list of donating threads
+//        donating_threads = lock_get_waiters(
+//                list_entry(e, struct lock, acquired_elem)
+//                                           );
+//
+//        // If that lock has waiting threads, get the one with the highest
+//        // priority and compare that with the current max_donation.
+//        if (!ordered_list_empty(donating_threads)) {
+//            top_donator = list_entry(
+//                    ordered_list_front(donating_threads),
+//                    struct thread,
+//                    elem
+//                                    );
+//            top_donation = top_donator->priority.effective;
+//            if (top_donation > max_donation) {
+//                max_donation = top_donation;
+//            }
+//        }
+//    }
 
-        // If that lock has waiting threads, get the one with the highest
-        // priority and compare that with the current max_donation.
-        if (!ordered_list_empty(donating_threads)) {
-            top_donator = list_entry(
-                    ordered_list_front(donating_threads),
-                    struct thread,
-                    elem
-                                    );
-            top_donation = top_donator->priority.effective;
-            if (top_donation > max_donation) {
-                max_donation = top_donation;
-            }
+    // Iterate over each donating thread. If their effective priority is higher
+    // than the current max, set the max to their priority.
+    struct list *donors = &t->priority.donors;
+    struct list_elem *e;
+    struct thread *donor;
+    int donation;
+    for (e = list_begin(donors); e != list_end(donors); e = list_next(e)) {
+        donor = list_entry(e, struct thread, donor_elem);
+        donation = donor->priority.effective;
+
+        if (donation > max_donation) {
+            max_donation = donation;
         }
     }
 
