@@ -9,10 +9,10 @@
 #include "fixed-point.h"
 
 struct priority {
-    int base;                        /* Base priority */
-    struct thread *donatee;          /* Thread being donated to */
-    struct list acquired_locks;      /* List<Lock>, whose waiters represent donators */
-    struct lock *lock_waiting_on;    /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
+    int base;                      /* Base priority */
+    int effective;                 /* Effective priority = max(base, top donation) */
+    struct list donors;            /* List<Thread> that are the donators */
+    struct lock *lock_blocked_by;  /* Lock that thread is waiting on. Used to reorder its waiting list on donation */
 };
 
 /* States in a thread's life cycle. */
@@ -99,6 +99,7 @@ struct thread {
     struct list_elem allelem;           /* List element for all threads list. */
 
     struct priority priority;           /* Priority. */
+    struct list_elem donor_elem;        /* Add this thread to another's list of donors*/
 
     fixed_point_t recent_cpu;           /* Recent CPU usage value */
     int nice;                           /* Niceness value */
@@ -155,15 +156,15 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 /* Priority functions */
-bool order_by_priority(const struct list_elem *a, const struct
+bool thread_less_func(const struct list_elem *a, const struct
         list_elem *b, void *aux UNUSED);
-int thread_effective_priority(struct thread *t);
-void thread_add_lock_as_donator(struct thread *t, struct lock *lock);
-void thread_remove_lock_from_donators(struct lock *lock);
-void thread_set_donatee(struct thread *t, struct thread *donatee);
-void thread_mark_no_longer_waiting(void);
-void thread_mark_waiting_on(struct lock *lock);
-void thread_update_thread_queue(struct thread *t);
+//int thread_effective_priority(struct thread *t);
+//void thread_add_lock_as_donator(struct thread *t, struct lock *lock);
+//void thread_remove_lock_from_donators(struct lock *lock);
+//void thread_set_donatee(struct thread *t, struct thread *donatee);
+//void thread_mark_no_longer_waiting(void);
+//void thread_mark_waiting_on(struct lock *lock);
+void thread_recalculate_effective_priority(struct thread *t);
 
 /* Recalculate values for mlfq */
 void thread_recalculate_priority(struct thread *thread, void *aux UNUSED);
