@@ -437,6 +437,9 @@ void thread_recalculate_load_avg(void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority(int new_priority) {
+
+    if (thread_mlfqs) {return;}
+
     ASSERT(new_priority >= PRI_MIN && new_priority <= PRI_MAX);
 
     struct thread *curr_thread = thread_current();
