@@ -75,7 +75,7 @@ typedef int tid_t;
       2. Second, kernel stacks must not be allowed to grow too
          large.  If a stack overflows, it will corrupt the thread
          state.  Thus, kernel functions should not allocate large
-         structures or arrays as non-static local variables.  Use
+         structurdonateees or arrays as non-static local variables.  Use
          dynamic allocation with malloc() or palloc_get_page()
          instead.
 
@@ -158,12 +158,6 @@ int thread_get_load_avg(void);
 /* Priority functions */
 bool thread_less_func(const struct list_elem *a, const struct
         list_elem *b, void *aux UNUSED);
-//int thread_effective_priority(struct thread *t);
-//void thread_add_lock_as_donator(struct thread *t, struct lock *lock);
-//void thread_remove_lock_from_donators(struct lock *lock);
-//void thread_set_donatee(struct thread *t, struct thread *donatee);
-//void thread_mark_no_longer_waiting(void);
-//void thread_mark_waiting_on(struct lock *lock);
 void thread_recalculate_effective_priority(struct thread *t);
 
 /* Recalculate values for mlfq */

@@ -345,29 +345,12 @@ thread_yield(void) {
 
     ASSERT(!intr_context());
 
-    /*****/
-
-//    printf("--- DEBUG: BEFORE YIELD CURR THREAD IS %s, priority = %d\n", cur->name, cur->priority);
-
-//    for (struct list_elem *e = list_begin(&ready_list.list); e != list_end(&ready_list.list); e = list_next(e)) {
-//        struct thread *t = list_entry(e, struct thread, elem);
-//        printf("--- DEBUG: Thread %s. Priority: %d\n", t->name, t->priority);
-//    }
-
-    /*****/
-
     old_level = intr_disable();
     if (cur != idle_thread) {
         ordered_list_insert(&ready_list, &cur->elem);
     }
     cur->status = THREAD_READY;
 
-//    printf("--- DEBUG: AFTER YIELD CURR THREAD IS %s, priority = %d\n", cur->name, cur->priority);
-
-    // NB: Call schedule(), not reschedule(). We are yielding the CPU so a
-    // schedule must occur. Reschedule() is for when a priority change means a
-    // different thread may now have the highest priority, so should preempt
-    // the running thread.
     schedule();
     intr_set_level(old_level);
 }
@@ -402,7 +385,7 @@ thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
     if (new_actual_priority > PRI_MAX) new_actual_priority = PRI_MAX;
 
     thread->priority.base = new_actual_priority;
-
+    thread->priority.effective = new_actual_priority;
 }
 
 void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
@@ -509,6 +492,14 @@ thread_get_recent_cpu(void) {
 }
 
 /*
+ * Resorts the ready list.
+ */
+void
+thread_resort_ready_list(void) {
+    ordered_list_resort(&ready_list);
+}
+
+/*
  * Recalculates the effective priority of a thread. This is computed by taking
  * the max priority from the highest priority threads of the acquired_locks
  * and the base priority.
@@ -537,39 +528,6 @@ thread_recalculate_effective_priority(struct thread *t) {
     }
 
     intr_set_level(old_level);
-}
-
-
-
-/*
- * Reorders the thread queue that the donatee is in (ready list or waiters
- * list of a semaphore). Recursively does the same to its donatee, if it has
- * one.
- */
-void
-thread_update_thread_queue(struct thread *t) {
-    ASSERT(t != NULL);
-
-    struct lock *lock_waiting_on = t->priority.lock_waiting_on;
-
-    switch (t->status) {
-    case THREAD_READY:
-        ordered_list_reinsert(&ready_list, &t->elem);
-        break;
-
-    case THREAD_BLOCKED:
-        if (lock_waiting_on != NULL) {
-            ordered_list_reinsert(
-                    lock_get_waiters(lock_waiting_on),
-                    &t->elem
-            );
-            thread_update_thread_queue(t->priority.donatee);
-        }
-        break;
-
-    default:
-        break;
-    }
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -643,9 +601,8 @@ void priority_init_mlfqs(struct thread *t) {
     thread_recalculate_priority(t, NULL);
 
     //Setting fields of priority to NULL as they will not be used
-    t->priority.donatee = NULL;
-    t->priority.lock_waiting_on = NULL;
-    list_init(&t->priority.acquired_locks);
+    t->priority.lock_blocked_by = NULL;
+    list_init(&t->priority.donors);
 
 }
 
