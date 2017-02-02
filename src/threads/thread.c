@@ -346,10 +346,6 @@ thread_yield(void) {
 
 //    printf("--- DEBUG: AFTER YIELD CURR THREAD IS %s, priority = %d\n", cur->name, cur->priority);
 
-    // NB: Call schedule(), not reschedule(). We are yielding the CPU so a
-    // schedule must occur. Reschedule() is for when a priority change means a
-    // different thread may now have the highest priority, so should preempt
-    // the running thread.
     schedule();
     intr_set_level(old_level);
 }
