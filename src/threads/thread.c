@@ -380,9 +380,7 @@ thread_set_priority(int new_priority) {
     curr_thread->priority.base = new_priority;
     thread_recalculate_effective_priority(curr_thread);
 
-    // May have to yield if base priority has increased. NB: Although yield only
-    // must occur if base has become higher than effective, we leave that logic
-    // to thread_yield().
+    // May have to yield if base priority has decreased.
     if (new_priority < old_priority) {
         thread_yield();
     }
@@ -429,9 +427,12 @@ thread_get_recent_cpu(void) {
  * and the base priority.
  * If t has a donatee, recursively recalculates the effective priority of it.
  */
+// TODO: Disable interrupts in this function.
 void
 thread_recalculate_effective_priority(struct thread *t) {
     ASSERT(t != NULL);
+
+    enum intr_level old_level = intr_disable();
 
     // Set effective priority of t.
     int max_donation = get_max_donation_to(t);
@@ -447,6 +448,8 @@ thread_recalculate_effective_priority(struct thread *t) {
     if (donatee != NULL) {
         thread_recalculate_effective_priority(donatee);
     }
+
+    intr_set_level(old_level);
 }
 
 /*

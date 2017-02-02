@@ -247,12 +247,15 @@ lock_try_acquire(struct lock *lock) {
    An interrupt handler cannot acquire a lock, so it does not
    make sense to try to release a lock within an interrupt
    handler. */
+// TODO: Possibly remove intr disable
 void
 lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread(lock));
 
-    // remove lock from holder's acquired locks list.
+    enum intr_level old_level = intr_disable();
+
+    // Remove lock from holder's acquired locks list.
     lock->holder = NULL;
 
     /* Have everything in the tail of the waiters list move their donation to
@@ -286,12 +289,12 @@ lock_release(struct lock *lock) {
         // null out it's lock_blocked_by and recalculate its priority.
         to_be_woken->priority.lock_blocked_by = NULL;
         thread_recalculate_effective_priority(to_be_woken);
-
     }
 
     // Recalculate effective priority of releasing thread.
     thread_recalculate_effective_priority(thread_current());
 
+    intr_set_level(old_level);
     sema_up(&lock->semaphore);
 }
 
