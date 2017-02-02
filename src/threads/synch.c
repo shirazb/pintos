@@ -219,16 +219,18 @@ lock_acquire(struct lock *lock) {
         thread_update_thread_queue(lock->holder);
     }*/
 
+    ASSERT(curr->priority.lock_blocked_by == NULL);
+
     if (lock_holder != NULL) {
         curr->priority.lock_blocked_by = lock;
         thread_recalculate_effective_priority(lock_holder);
-    } else {
-        list_push_front(&curr->priority.acquired_locks, &lock->acquired_elem);
     }
 
     sema_down(&lock->semaphore);
     lock->holder = curr;
     curr->priority.lock_blocked_by = NULL;
+    list_push_front(&curr->priority.acquired_locks, &lock->acquired_elem);
+    thread_recalculate_effective_priority(curr);
 //    thread_mark_no_longer_waiting();
 }
 
@@ -293,7 +295,10 @@ lock_release(struct lock *lock) {
 //        thread_update_thread_queue(to_be_woken);
 //    }
 
-
+    // Remove lock from releasing lock's acquired locks list and recalc
+    // effective priority. PUT THIS AT THE END MAYBE?
+    list_remove(&lock->acquired_elem);
+    thread_recalculate_effective_priority(thread_current());
 
     sema_up(&lock->semaphore);
 }
