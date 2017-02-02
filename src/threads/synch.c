@@ -209,18 +209,18 @@ lock_acquire(struct lock *lock) {
 
     struct thread *curr = thread_current();
 
-    if (lock->holder == NULL) {
+    /*if (lock->holder == NULL) {
         thread_add_lock_as_donator(curr, lock);
     } else {
         thread_mark_waiting_on(lock);
         ASSERT(thread_current()->priority.donatee == NULL);
         thread_set_donatee(curr, lock->holder);
         thread_update_thread_queue(lock->holder);
-    }
+    }*/
 
     sema_down(&lock->semaphore);
     lock->holder = curr;
-    thread_mark_no_longer_waiting();
+//    thread_mark_no_longer_waiting();
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -254,35 +254,35 @@ lock_release(struct lock *lock) {
     ASSERT (lock_held_by_current_thread(lock));
 
     // remove lock from holder's acquired locks list.
-    thread_remove_lock_from_donators(lock);
+//    thread_remove_lock_from_donators(lock);
     lock->holder = NULL;
 
-    struct thread *to_be_woken = NULL;
-
-    // Tell head of waiters list to start receiving donations from lock
-    struct ordered_list *waiters = lock_get_waiters(lock);
-    if (!ordered_list_empty(waiters)) {
-        to_be_woken = list_entry(
-                ordered_list_front(waiters),
-                struct thread,
-                elem
-        );
-
-        thread_add_lock_as_donator(to_be_woken, lock);
-
-        // Set each of waiter's tail's donatee members to to_be_woken
-        struct list_elem *still_waiting = list_next(&to_be_woken->elem);
-        for (; still_waiting != list_end(&waiters->list);
-               still_waiting = list_next(still_waiting)) {
-            struct thread *waiting_thread = list_entry(still_waiting, struct thread,
-                                                       elem);
-
-            ASSERT(waiting_thread->priority.donatee == thread_current());
-            thread_set_donatee(waiting_thread, to_be_woken);
-        }
-
-        thread_update_thread_queue(to_be_woken);
-    }
+//    struct thread *to_be_woken = NULL;
+//
+//    // Tell head of waiters list to start receiving donations from lock
+//    struct ordered_list *waiters = lock_get_waiters(lock);
+//    if (!ordered_list_empty(waiters)) {
+//        to_be_woken = list_entry(
+//                ordered_list_front(waiters),
+//                struct thread,
+//                elem
+//        );
+//
+//        thread_add_lock_as_donator(to_be_woken, lock);
+//
+//        // Set each of waiter's tail's donatee members to to_be_woken
+//        struct list_elem *still_waiting = list_next(&to_be_woken->elem);
+//        for (; still_waiting != list_end(&waiters->list);
+//               still_waiting = list_next(still_waiting)) {
+//            struct thread *waiting_thread = list_entry(still_waiting, struct thread,
+//                                                       elem);
+//
+//            ASSERT(waiting_thread->priority.donatee == thread_current());
+//            thread_set_donatee(waiting_thread, to_be_woken);
+//        }
+//
+//        thread_update_thread_queue(to_be_woken);
+//    }
 
     sema_up(&lock->semaphore);
 }

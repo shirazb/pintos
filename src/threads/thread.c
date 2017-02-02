@@ -744,6 +744,9 @@ refresh_thread_queue(struct thread *t) {
                         &t->elem
                 );
             }
+
+        default:
+            break;
     }
 }
 
