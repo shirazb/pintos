@@ -184,14 +184,14 @@ timer_interrupt(struct intr_frame *args UNUSED) {
             thread_recalculate_load_avg();
             thread_foreach(thread_recalculate_recent_cpu, NULL);
 
-            thread_foreach(thread_recalculate_priority, NULL);
+            thread_foreach(thread_recalculate_mlfq_priority, NULL);
             thread_resort_ready_list();
 
         }
 
         //Recalculate current thread's priority every 4 ticks
         if (ticks % 4 == 0) {
-            thread_recalculate_priority(thread_current(), NULL);
+            thread_recalculate_mlfq_priority(thread_current(), NULL);
         }
 
 

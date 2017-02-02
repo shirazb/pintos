@@ -148,7 +148,6 @@ void thread_foreach(thread_action_func *, void *);
 
 int thread_get_priority(void);
 void thread_set_priority(int);
-void thread_specified_set_priority(struct thread *t, int);
 
 int thread_get_nice(void);
 void thread_set_nice(int);
@@ -156,18 +155,18 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 /* Priority functions */
-bool thread_less_func(const struct list_elem *a, const struct
-        list_elem *b, void *aux UNUSED);
+bool thread_less_func(const struct list_elem *a, const struct list_elem *b,
+                      void *aux UNUSED);
 void thread_recalculate_effective_priority(struct thread *t);
 
 /* Recalculate values for mlfq */
-void thread_recalculate_priority(struct thread *thread, void *aux UNUSED);
+void thread_recalculate_mlfq_priority(struct thread *thread, void *aux UNUSED);
 void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED);
 void thread_recalculate_load_avg(void);
 
 void thread_resort_ready_list(void);
 
 /* Initialises priority for mlfq mode */
-void priority_init_mlfqs(struct thread *t);
+void init_mlfq_priority(struct thread *t);
 
 #endif /* threads/thread.h */

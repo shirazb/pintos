@@ -372,7 +372,7 @@ thread_foreach(thread_action_func *func, void *aux) {
 
 
 void
-thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
+thread_recalculate_mlfq_priority(struct thread *thread, void *aux UNUSED) {
 
     // priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
 
@@ -458,7 +458,7 @@ thread_set_nice(int nice) {
     //Calculating and setting priority based on the new nice value
     int old_priority = curr_thread->priority.base;
 
-    thread_recalculate_priority(curr_thread, NULL);
+    thread_recalculate_mlfq_priority(curr_thread, NULL);
 
     int new_priority = curr_thread->priority.base;
 
@@ -595,10 +595,10 @@ is_thread(struct thread *t) {
     return t != NULL && t->magic == THREAD_MAGIC;
 }
 
-void priority_init_mlfqs(struct thread *t) {
+void init_mlfq_priority(struct thread *t) {
 
     //Calculating base priority
-    thread_recalculate_priority(t, NULL);
+    thread_recalculate_mlfq_priority(t, NULL);
 
     //Setting fields of priority to NULL as they will not be used
     t->priority.lock_blocked_by = NULL;
@@ -622,7 +622,7 @@ init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
 
     if (thread_mlfqs) {
-        priority_init_mlfqs(t);
+        init_mlfq_priority(t);
     } else {
         init_priority(&t->priority, priority);
     }
