@@ -177,7 +177,8 @@ timer_interrupt(struct intr_frame *args UNUSED) {
 
     if (thread_mlfqs) {
 
-        //Recalculate load_avg as well as every thread's recent_cpu and priority
+        //Recalculate load_avg as well as every thread's recent_cpu and
+        // priority every second
         if (ticks % TIMER_FREQ == 0) {
 
             thread_recalculate_load_avg();
@@ -195,7 +196,6 @@ timer_interrupt(struct intr_frame *args UNUSED) {
 
 
     }
-    //Recalculate load_avg and recent_cpu every second
 
 }
 

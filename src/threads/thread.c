@@ -438,6 +438,8 @@ void thread_recalculate_load_avg(void) {
 void
 thread_set_priority(int new_priority) {
 
+    //If running in mlfq mode, then the priority is calculated through the
+    // setting the nice value and recent_cpu instead.
     if (thread_mlfqs) { return;}
 
     ASSERT(new_priority >= PRI_MIN && new_priority <= PRI_MAX);
