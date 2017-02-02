@@ -221,9 +221,9 @@ lock_acquire(struct lock *lock) {
 
     if (lock_holder != NULL) {
         curr->priority.lock_blocked_by = lock;
-        thread_recalculate_effective_priority(lock);
+        thread_recalculate_effective_priority(lock_holder);
     } else {
-        list_push_front(&curr->priority.acquired_locks, lock->acquired_elem);
+        list_push_front(&curr->priority.acquired_locks, &lock->acquired_elem);
     }
 
     sema_down(&lock->semaphore);

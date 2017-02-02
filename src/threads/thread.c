@@ -773,7 +773,7 @@ int get_max_donation(struct thread *t) {
          e = list_next(e)) {
         // Get lock's list of donating threads
         donating_threads = lock_get_waiters(
-                list_entry(e, struct lock, donorelem)
+                list_entry(e, struct lock, acquired_elem)
                                            );
 
         // If that lock has waiting threads, get the one with the highest
