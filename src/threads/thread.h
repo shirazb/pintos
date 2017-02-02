@@ -173,7 +173,4 @@ void thread_recalculate_load_avg(void);
 
 void thread_resort_ready_list(void);
 
-/* Initialises priority for mlfq mode */
-void priority_init_mlfqs(struct thread *t);
-
 #endif /* threads/thread.h */
