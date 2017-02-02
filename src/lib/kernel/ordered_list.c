@@ -10,8 +10,7 @@ ordered_list_init(struct ordered_list *ol, list_less_func *less, void *aux) {
 
     list_init(&ol->list);
     ol->less = less;
-    ol->aux  = aux;
-    ol->size = 0;
+    ol->aux = aux;
 }
 
 /**
@@ -37,7 +36,7 @@ ordered_list_resort(struct ordered_list *ol) {
 void
 ordered_list_insert(struct ordered_list *ol, struct list_elem *elem) {
     ASSERT(ol != NULL);
-    ol->size++;
+    ol->list.size++;
     list_insert_ordered(&ol->list, elem, ol->less, ol->aux);
 }
 
@@ -50,7 +49,7 @@ ordered_list_front(struct ordered_list *ol) {
 struct list_elem *
 ordered_list_pop_front(struct ordered_list *ol) {
     ASSERT(ol != NULL);
-    ol->size--;
+    ol->list.size--;
     return list_pop_front(&ol->list);
 }
 
@@ -61,5 +60,8 @@ bool ordered_list_empty(struct ordered_list *ol) {
 
 
 int ordered_list_size(struct ordered_list *ol) {
-    return ol->size;
+    if (ol->list.size != 0) {
+        printf("yaya");
+    }
+    return ol->list.size;
 }

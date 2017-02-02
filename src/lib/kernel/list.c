@@ -65,6 +65,7 @@ list_init (struct list *list)
   list->head.next = &list->tail;
   list->tail.prev = &list->head;
   list->tail.next = NULL;
+  list->size = 0;
 }
 
 /* Returns the beginning of LIST.  */
@@ -175,7 +176,6 @@ list_insert (struct list_elem *before, struct list_elem *elem)
   elem->next = before;
   before->prev->next = elem;
   before->prev = elem;
-
 }
 
 /* Removes elements FIRST though LAST (exclusive) from their

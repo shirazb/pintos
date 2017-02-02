@@ -6,7 +6,6 @@
 #include <stdint.h>
 #include <threads/synch.h>
 #include <threads/sleep_desc.h>
-#include "fixed-point.h"
 
 struct priority {
     int base;                        /* Base priority */
@@ -26,6 +25,9 @@ enum thread_status {
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
+
+/* Fixed point number typedef for clarity */
+typedef int fp_number;
 
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
 
@@ -100,7 +102,7 @@ struct thread {
 
     struct priority priority;           /* Priority. */
 
-    fixed_point_t recent_cpu;           /* Recent CPU usage value */
+    fp_number recent_cpu;               /* Recent CPU usage value */
     int nice;                           /* Niceness value */
 
     /* Shared between thread.c and synch.c. */
@@ -147,7 +149,6 @@ void thread_foreach(thread_action_func *, void *);
 
 int thread_get_priority(void);
 void thread_set_priority(int);
-void thread_specified_set_priority(struct thread *t, int);
 
 int thread_get_nice(void);
 void thread_set_nice(int);
