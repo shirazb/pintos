@@ -214,7 +214,7 @@ lock_acquire(struct lock *lock) {
 
     if (lock_holder != NULL) {
         curr->priority.lock_blocked_by = lock;
-        list_push_front(&lock_holder->priority.donors, &curr->elem);
+        list_push_front(&lock_holder->priority.donors, &curr->donor_elem);
         thread_recalculate_effective_priority(lock_holder);
     }
 
