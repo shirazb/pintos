@@ -132,8 +132,6 @@ sema_up(struct semaphore *sema) {
     // has a higher priority than the current thread. However, if this
     // thread is not awoken_thread, and it didn't before, it still won't.
     // So we assume the case where it is awoken_thread.
-    // Could make a function in thread.h that tells the running thread to
-    // yield if it is no longer the highest priority thread?
     if (!intr_context() && awoken_thread != NULL) {
         thread_yield();
     }

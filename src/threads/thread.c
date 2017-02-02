@@ -84,7 +84,8 @@ void thread_schedule_tail(struct thread *prev);
 
 static tid_t allocate_tid(void);
 
-static void init_priority(struct priority *priority, int actual_priority);
+static void init_donation_priority(struct priority *priority,
+                                   int actual_priority);
 
 static int get_max_donation_to(struct thread *t);
 
@@ -370,7 +371,6 @@ thread_foreach(thread_action_func *func, void *aux) {
     }
 }
 
-
 void
 thread_recalculate_mlfq_priority(struct thread *thread, void *aux UNUSED) {
 
@@ -385,7 +385,6 @@ thread_recalculate_mlfq_priority(struct thread *thread, void *aux UNUSED) {
     if (new_actual_priority > PRI_MAX) new_actual_priority = PRI_MAX;
 
     thread->priority.base = new_actual_priority;
-    thread->priority.effective = new_actual_priority;
 }
 
 void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
@@ -419,18 +418,17 @@ void thread_recalculate_load_avg(void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority(int new_priority) {
-
     //If running in mlfq mode, then the priority is calculated through the
     // setting the nice value and recent_cpu instead.
-    if (thread_mlfqs) { return;}
+    if (thread_mlfqs) {
+        return;
+    }
 
     ASSERT(new_priority >= PRI_MIN && new_priority <= PRI_MAX);
 
     struct thread *curr_thread = thread_current();
-//    printf("---DEBUG: Setting priority of thread %s from %d to %d\n", curr_thread->name, thread_effective_priority(curr_thread), new_priority);
 
     int old_priority = curr_thread->priority.base;
-
     curr_thread->priority.base = new_priority;
     thread_recalculate_effective_priority(curr_thread);
 
@@ -438,14 +436,14 @@ thread_set_priority(int new_priority) {
     if (new_priority < old_priority) {
         thread_yield();
     }
-
-//    printf("---DEBUG: Set priority of thread %s to %d", curr_thread->name, thread_effective_priority(curr_thread));
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority(void) {
-    return thread_current()->priority.effective;
+    return thread_mlfqs ?
+           thread_current()->priority.base :
+           thread_current()->priority.effective;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -485,10 +483,8 @@ thread_get_load_avg(void) {
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu(void) {
-
     return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(thread_current()->recent_cpu,
                                                    100));
-
 }
 
 /*
@@ -596,14 +592,12 @@ is_thread(struct thread *t) {
 }
 
 void init_mlfq_priority(struct thread *t) {
-
     //Calculating base priority
     thread_recalculate_mlfq_priority(t, NULL);
 
     //Setting fields of priority to NULL as they will not be used
     t->priority.lock_blocked_by = NULL;
     list_init(&t->priority.donors);
-
 }
 
 /* Does basic initialization of T as a blocked thread named
@@ -624,7 +618,7 @@ init_thread(struct thread *t, const char *name, int priority) {
     if (thread_mlfqs) {
         init_mlfq_priority(t);
     } else {
-        init_priority(&t->priority, priority);
+        init_donation_priority(&t->priority, priority);
     }
 
     t->sleep_desc = NULL;
@@ -637,7 +631,8 @@ init_thread(struct thread *t, const char *name, int priority) {
     intr_set_level(old_level);
 }
 
-static void init_priority(struct priority *priority, int actual_priority) {
+static void init_donation_priority(struct priority *priority,
+                                   int actual_priority) {
     ASSERT(priority != NULL);
     ASSERT(PRI_MIN <= actual_priority && actual_priority <= PRI_MAX);
 
@@ -769,7 +764,9 @@ thread_less_func(const struct list_elem *a, const struct list_elem *b,
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
 
-    return thread_a->priority.effective > thread_b->priority.effective;
+    return thread_mlfqs ?
+               thread_a->priority.base > thread_b->priority.base :
+               thread_a->priority.effective > thread_b->priority.effective;
 }
 
 /*
@@ -812,37 +809,6 @@ int get_max_donation_to(struct thread *t) {
     ASSERT(t != NULL);
 
     int max_donation = PRI_MIN - 1;
-
-//    // Iterate over each acquired lock. Get the top donating threads effective
-//    // priority and compare that with the current max_donation.
-//    struct list *donating_locks = &t->priority.acquired_locks;
-//    struct list_elem *e = NULL;
-//    struct ordered_list *donating_threads = NULL;
-//    struct thread *top_donator = NULL;
-//    int top_donation = 0;
-//    for (e = list_begin(donating_locks);
-//         e != list_end(donating_locks);
-//         e = list_next(e)) {
-//        // Get lock's list of donating threads
-//        donating_threads = lock_get_waiters(
-//                list_entry(e, struct lock, acquired_elem)
-//                                           );
-//
-//        // If that lock has waiting threads, get the one with the highest
-//        // priority and compare that with the current max_donation.
-//        if (!ordered_list_empty(donating_threads)) {
-//            top_donator = list_entry(
-//                    ordered_list_front(donating_threads),
-//                    struct thread,
-//                    elem
-//                                    );
-//            top_donation = top_donator->priority.effective;
-//            if (top_donation > max_donation) {
-//                max_donation = top_donation;
-//            }
-//        }
-//    }
-
 
     // Iterate over each donating thread. If their effective priority is higher
     // than the current max, set the max to their priority.
