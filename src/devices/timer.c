@@ -175,21 +175,18 @@ timer_interrupt(struct intr_frame *args UNUSED) {
     thread_tick();
     wake_overslept_threads();
 
+    //Recalculate load_avg and recent_cpu every second
+    if (thread_mlfqs && (ticks % TIMER_FREQ == 0)) {
 
-    if (thread_mlfqs) {
+        thread_recalculate_load_avg();
+        thread_foreach(thread_recalculate_recent_cpu, NULL);
 
-        //Recalculate load_avg and recent_cpu every second
-        if (timer_elapsed(ticks % TIMER_FREQ == 0)) {
-            thread_recalculate_load_avg();
-            thread_foreach(thread_recalculate_recent_cpu, NULL);
-        }
+    }
 
-        //Recalculate every thread's priority every 4 ticks
-        if (ticks % 4 == 0) {
-            thread_foreach(thread_recalculate_priority, NULL);
-            thread_resort_ready_list();
-        }
-
+    //Recalculate every thread's priority every 4 ticks
+    if (thread_mlfqs && (ticks % 4 == 0)) {
+        thread_foreach(thread_recalculate_priority, NULL);
+        thread_resort_ready_list();
     }
 
 }
