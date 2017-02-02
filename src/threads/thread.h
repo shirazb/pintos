@@ -150,7 +150,7 @@ int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
 
 /* Priority functions */
-bool order_by_priority(const struct list_elem *a, const struct
+bool thread_less_func(const struct list_elem *a, const struct
         list_elem *b, void *aux UNUSED);
 //int thread_effective_priority(struct thread *t);
 //void thread_add_lock_as_donator(struct thread *t, struct lock *lock);

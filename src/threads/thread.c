@@ -105,7 +105,7 @@ thread_init(void) {
     ASSERT(intr_get_level() == INTR_OFF);
 
     lock_init(&tid_lock);
-    ordered_list_init(&ready_list, order_by_priority, NULL);
+    ordered_list_init(&ready_list, thread_less_func, NULL);
     list_init(&all_list);
 
     /* Set up a thread structure for the running thread. */
@@ -715,8 +715,8 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
  * put it after b.
  */
 bool
-order_by_priority(const struct list_elem *a, const struct list_elem *b,
-                  void *aux UNUSED) {
+thread_less_func(const struct list_elem *a, const struct list_elem *b,
+                 void *aux UNUSED) {
     struct thread *thread_a = list_entry(a, struct thread, elem);
     struct thread *thread_b = list_entry(b, struct thread, elem);
 
