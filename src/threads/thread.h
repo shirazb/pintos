@@ -157,5 +157,6 @@ bool order_by_priority(const struct list_elem *a, const struct
 //void thread_set_donatee(struct thread *t, struct thread *donatee);
 //void thread_mark_no_longer_waiting(void);
 //void thread_mark_waiting_on(struct lock *lock);
+void thread_recalculate_effective_priority(struct thread *t);
 
 #endif /* threads/thread.h */

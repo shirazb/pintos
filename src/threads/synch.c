@@ -114,7 +114,7 @@ sema_up(struct semaphore *sema) {
 
     old_level = intr_disable();
     if (!ordered_list_empty(&sema->waiters)) {
-        // Resort list - side effects may have occurred on priorities due to
+        // Resort list -- side effects may have occurred on priorities due to
         // donation through locks.
         ordered_list_resort(&sema->waiters);
         awoken_thread = list_entry (ordered_list_pop_front(&sema->waiters),
@@ -208,6 +208,7 @@ lock_acquire(struct lock *lock) {
     ASSERT (!lock_held_by_current_thread(lock));
 
     struct thread *curr = thread_current();
+    struct thread *lock_holder = lock->holder;
 
     /*if (lock->holder == NULL) {
         thread_add_lock_as_donator(curr, lock);
@@ -218,8 +219,14 @@ lock_acquire(struct lock *lock) {
         thread_update_thread_queue(lock->holder);
     }*/
 
+    if (lock_holder != NULL) {
+        curr->priority.lock_blocked_by = lock;
+        thread_recalculate_effective_priority(lock);
+    }
+
     sema_down(&lock->semaphore);
     lock->holder = curr;
+    curr->priority.lock_blocked_by = NULL;
 //    thread_mark_no_longer_waiting();
 }
 

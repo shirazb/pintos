@@ -80,9 +80,11 @@ void thread_schedule_tail(struct thread *prev);
 static tid_t allocate_tid(void);
 
 static void init_priority(struct priority *priority, int actual_priority);
-static void recalculate_effective_priority(struct thread *t);
+
 static int get_max_donation(struct thread *t);
+
 static void refresh_thread_queue(struct thread *t);
+
 static struct thread *thread_get_donatee(struct thread *t);
 
 /* Initializes the threading system by transforming the code
@@ -159,7 +161,7 @@ thread_print_stats(void) {
     printf(
             "Thread: %lld idle ticks, %lld kernel ticks, %lld user ticks\n",
             idle_ticks, kernel_ticks, user_ticks
-    );
+          );
 }
 
 /* Creates a new kernel thread named NAME with the given initial
@@ -376,7 +378,7 @@ thread_set_priority(int new_priority) {
     int old_priority = curr_thread->priority.base;
 
     curr_thread->priority.base = new_priority;
-    recalculate_effective_priority(curr_thread);
+    thread_recalculate_effective_priority(curr_thread);
 
     // May have to yield if base priority has increased. Although yield only
     // must occur if base has become higher than effective, we leave that logic
@@ -419,6 +421,32 @@ int
 thread_get_recent_cpu(void) {
     /* Not yet implemented. */
     return 0;
+}
+
+/*
+ * Recalculates the effective priority of a thread. This is computed by taking
+ * the max priority from the highest priority threads of the donating_locks
+ * and the base priority.
+ * If t has a donatee, recursively recalculates the effective priority of it.
+ */
+void
+thread_recalculate_effective_priority(struct thread *t) {
+    ASSERT(t != NULL);
+
+    // Set effective priority of t.
+    int max_donation = get_max_donation(t);
+    int base_priority = t->priority.base;
+    t->priority.effective = max_donation > base_priority ?
+                            max_donation :
+                            base_priority;
+
+    refresh_thread_queue(t);
+
+    // Recurse on t's donatee, if it exists.
+    struct thread *donatee = thread_get_donatee(t);
+    if (donatee != NULL) {
+        thread_recalculate_effective_priority(donatee);
+    }
 }
 
 /*
@@ -590,7 +618,7 @@ next_thread_to_run(void) {
         return idle_thread;
     } else {
         return list_entry(ordered_list_pop_front(&ready_list), struct thread,
-                elem);
+                          elem);
     }
 }
 
@@ -693,32 +721,6 @@ order_by_priority(const struct list_elem *a, const struct list_elem *b,
 }
 
 /*
- * Recalculates the effective priority of a thread. This is computed by taking
- * the max priority from the highest priority threads of the donating_locks
- * and the base priority.
- * If t has a donatee, recursively recalculates the effective priority of it.
- */
-static void
-recalculate_effective_priority(struct thread *t) {
-    ASSERT(t != NULL);
-
-    // Set effective priority of t.
-    int max_donation = get_max_donation(t);
-    int base_priority = t->priority.base;
-    t->priority.effective = max_donation > base_priority ?
-                                max_donation :
-                                base_priority;
-
-    refresh_thread_queue(t);
-
-    // Recurse on t's donatee, if it exists.
-    struct thread *donatee = thread_get_donatee(t);
-    if (donatee != NULL) {
-        recalculate_effective_priority(donatee);
-    }
-}
-
-/*
  * Updates the thread queue that t is in. This can be either the ready list or
  * the waiters list of a semaphore.
  */
@@ -730,23 +732,23 @@ refresh_thread_queue(struct thread *t) {
     struct lock *lock_blocked_by = t->priority.lock_blocked_by;
 
     switch (t->status) {
-        case THREAD_READY:
-            ASSERT(t->priority.lock_blocked_by == NULL);
-            ordered_list_reinsert(&ready_list, &t->elem);
-            break;
+    case THREAD_READY:
+        ASSERT(t->priority.lock_blocked_by == NULL);
+        ordered_list_reinsert(&ready_list, &t->elem);
+        break;
 
-        case THREAD_BLOCKED:
-            // Thread may be sleeping on the timer or a semaphore rather than
-            // a lock
-            if (lock_blocked_by != NULL) {
-                ordered_list_reinsert(
-                        lock_get_waiters(lock_blocked_by),
-                        &t->elem
-                );
-            }
+    case THREAD_BLOCKED:
+        // Thread may be sleeping on the timer or a semaphore rather than
+        // a lock
+        if (lock_blocked_by != NULL) {
+            ordered_list_reinsert(
+                    lock_get_waiters(lock_blocked_by),
+                    &t->elem
+                                 );
+        }
 
-        default:
-            break;
+    default:
+        break;
     }
 }
 
@@ -768,12 +770,11 @@ int get_max_donation(struct thread *t) {
     int top_donation = 0;
     for (e = list_begin(donating_locks);
          e != list_end(donating_locks);
-         e = list_next(e))
-    {
+         e = list_next(e)) {
         // Get lock's list of donating threads
         donating_threads = lock_get_waiters(
                 list_entry(e, struct lock, donorelem)
-        );
+                                           );
 
         // If that lock has waiting threads, get the one with the highest
         // priority and compare that with the current max_donation.
@@ -782,7 +783,7 @@ int get_max_donation(struct thread *t) {
                     ordered_list_front(donating_threads),
                     struct thread,
                     elem
-            );
+                                    );
             top_donation = top_donator->priority.effective;
             if (top_donation > max_donation) {
                 max_donation = top_donation;
