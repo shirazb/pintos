@@ -5,7 +5,6 @@
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/vaddr.h"
-#include "fixed-point.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -149,6 +148,7 @@ thread_tick(void) {
     else {
         kernel_ticks++;
 
+        //Incrementing recent_cpu per tick if not idle thread for mlfqs
         if (thread_mlfqs) {
             t->recent_cpu = ADD_FP_INT(t->recent_cpu, 1);
         }
@@ -157,13 +157,7 @@ thread_tick(void) {
 
     /* Enforce preemption. */
     if (++thread_ticks >= TIME_SLICE) {
-
-        if (thread_mlfqs && t != idle_thread) {
-            thread_recalculate_priority(t, NULL);
-            thread_resort_ready_list();
-        }
-
-        intr_yield_on_return();
+       intr_yield_on_return();
     }
 }
 
@@ -390,6 +384,8 @@ thread_foreach(thread_action_func *func, void *aux) {
 void
 thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
 
+    // priority = PRI_MAX - (recent_cpu / 4) - (nice * 2)
+
     int new_actual_priority
             = PRI_MAX -
               CAST_FP_TO_INT_ROUND_ZERO(DIV_FP_INT(thread->recent_cpu, 4)) -
@@ -398,7 +394,7 @@ thread_recalculate_priority(struct thread *thread, void *aux UNUSED) {
     if (new_actual_priority < PRI_MIN) new_actual_priority = PRI_MIN;
     if (new_actual_priority > PRI_MAX) new_actual_priority = PRI_MAX;
 
-    priority_init(&thread->priority, new_actual_priority);
+    thread->priority.base = new_actual_priority;
 
 }
 
@@ -406,9 +402,9 @@ void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
 
     //(2 * load_avg) / (2 * load_avg + 1) * recent_cpu + thread->nice
 
-    fp_number old_cpu = thread->recent_cpu;
+    fixed_point_t old_cpu = thread->recent_cpu;
 
-    fp_number new_cpu = MUL_FP_INT(load_avg, 2);
+    fixed_point_t new_cpu = MUL_FP_INT(load_avg, 2);
     new_cpu = DIV_FP_FP(new_cpu, ADD_FP_INT(new_cpu, 1));
     new_cpu = MUL_FP_FP(new_cpu, old_cpu);
     new_cpu = ADD_FP_INT(new_cpu, thread->nice);
@@ -419,7 +415,7 @@ void thread_recalculate_recent_cpu(struct thread *thread, void *aux UNUSED) {
 
 void thread_recalculate_load_avg(void) {
 
-    //(59/60) * load_avg + (1/60) * ready_threads
+    //(59/60) * load_avg + (1/60) * ready_and_running_threads
 
     int running_threads = (thread_current() != idle_thread);
 
@@ -461,10 +457,21 @@ thread_get_priority(void) {
 /* Sets the current thread's nice value to NICE. */
 void
 thread_set_nice(int nice) {
-    struct thread *curr = thread_current();
-    curr->nice = nice;
-    thread_recalculate_priority(curr, NULL);
-//    thread_resort_ready_list();
+
+    struct thread *curr_thread = thread_current();
+    curr_thread->nice = nice;
+
+    //Calculating and setting priority based on the new nice value
+    int old_priority = curr_thread->priority.base;
+
+    thread_recalculate_priority(curr_thread, NULL);
+
+    int new_priority = curr_thread->priority.base;
+
+    if (new_priority < old_priority) {
+        thread_yield();
+    }
+
 }
 
 /* Returns the current thread's nice value. */
@@ -674,6 +681,18 @@ is_thread(struct thread *t) {
     return t != NULL && t->magic == THREAD_MAGIC;
 }
 
+void priority_init_mlfqs(struct thread *t) {
+
+    //Calculating base priority
+    thread_recalculate_priority(t, NULL);
+
+    //Setting fields of priority to NULL as they will not be used
+    t->priority.donatee = NULL;
+    t->priority.lock_waiting_on = NULL;
+    list_init(&t->priority.acquired_locks);
+
+}
+
 /* Does basic initialization of T as a blocked thread named
    NAME. */
 static void
@@ -690,7 +709,7 @@ init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
 
     if (thread_mlfqs) {
-        thread_recalculate_priority(t, NULL);
+        priority_init_mlfqs(t);
     } else {
         priority_init(&t->priority, priority);
     }
@@ -709,10 +728,13 @@ static void priority_init(struct priority *priority, int actual_priority) {
     ASSERT(priority != NULL);
     ASSERT(PRI_MIN <= actual_priority && actual_priority <= PRI_MAX);
 
+
     priority->base = actual_priority;
+
     priority->donatee = NULL;
     priority->lock_waiting_on = NULL;
     list_init(&priority->acquired_locks);
+
 }
 
 void thread_resort_ready_list(void) {
