@@ -1,17 +1,10 @@
 #include "threads/thread.h"
 #include <debug.h>
-#include <stddef.h>
-#include <random.h>
 #include <stdio.h>
 #include <string.h>
-#include "threads/flags.h"
-#include "threads/interrupt.h"
-#include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
-#include "fixed-point.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -41,7 +34,6 @@ static struct lock tid_lock;
 
 /* OS load average value */
 fixed_point_t load_avg;
-//fixed_point_t load_avg = CAST_INT_TO_FP(0);
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame {
@@ -437,6 +429,10 @@ void thread_recalculate_load_avg(void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority(int new_priority) {
+
+    //Do nothing if running in mlfq mode
+    if (thread_mlfqs) { return;}
+
     ASSERT(new_priority >= PRI_MIN && new_priority <= PRI_MAX);
 
     struct thread *curr_thread = thread_current();

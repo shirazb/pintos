@@ -24,14 +24,17 @@ sleep_desc_init (struct sleep_desc *desc, int64_t wake_time, struct list *sleepi
 
 /**
  * If ticks exceeds the threads wake time, wakes the thread up
+ * Returns true if thread has overslept, false if not
  */
-void
+bool
 sleep_desc_wake_if_overslept(struct sleep_desc *desc, int64_t ticks)
 {
   if (has_overslept (desc, ticks))
     {
       wake_up (desc);
+      return true;
     }
+  return false;
 }
 
 /**

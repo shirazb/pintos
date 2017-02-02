@@ -234,7 +234,11 @@ wake_overslept_threads(void) {
         ASSERT (desc != NULL);
         //printf("------ DEBUG: looping on thread %d.\n", t->tid);
 
-        sleep_desc_wake_if_overslept(desc, ticks);
+        // If a thread doesn't need to wake then the following ones don't need
+        // to either so we break out of the loop.
+        if (!sleep_desc_wake_if_overslept(desc, ticks)) {
+            break;
+        }
     }
 
     //printf("------ DEBUG: End looping ---------\n");

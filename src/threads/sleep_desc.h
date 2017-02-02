@@ -24,6 +24,6 @@ struct sleep_desc
 };
 
 void sleep_desc_init (struct sleep_desc *desc, int64_t wake_time, struct list *sleeping_threads);
-void sleep_desc_wake_if_overslept (struct sleep_desc *desc, int64_t ticks);
+bool sleep_desc_wake_if_overslept (struct sleep_desc *desc, int64_t ticks);
 
 #endif //PINTOS_TASK0_SB4515_SLEEP_DESC_H
