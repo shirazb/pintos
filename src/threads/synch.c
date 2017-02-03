@@ -120,7 +120,8 @@ sema_up(struct semaphore *sema) {
     if (!ordered_list_empty(&sema->waiters)) {
         // Resort list -- side effects may have occurred on priorities due to
         // donation through locks.
-        ordered_list_resort(&sema->waiters);
+        if (!thread_mlfqs) { ordered_list_resort(&sema->waiters); }
+
         awoken_thread = list_entry (ordered_list_pop_front(&sema->waiters),
                                     struct thread, elem);
         ASSERT(awoken_thread != NULL);
@@ -263,42 +264,44 @@ lock_release(struct lock *lock) {
     // Thread is releasing; clear lock's holder.
     lock->holder = NULL;
 
-    /* Have everything in the tail of the waiters list move their donation to
-       the head of the waiters list */
-    struct thread *to_be_woken = NULL;
-    struct ordered_list *waiters = lock_get_waiters(lock);
-    if (!ordered_list_empty(waiters)) {
-        to_be_woken = list_entry(
-                ordered_list_front(waiters),
-                struct thread,
-                elem
-        );
-
-        /* Revoke donations of all waiters.
-         * Explicitly revoke the head's. Move the tails' donations to the
-         * head */
-        struct list_elem *e = list_next(&to_be_woken->elem);
-        struct thread *still_waiting;
-        for (; e != list_end(&waiters->list); e = list_next(e)) {
-            still_waiting = list_entry(e, struct thread, elem);
-
-            list_remove(&still_waiting->donor_elem);
-            list_push_front(
-                    &to_be_woken->priority.donors,
-                    &still_waiting->donor_elem
+    if (!thread_mlfqs) {
+        /* Have everything in the tail of the waiters list move their donation to
+   the head of the waiters list */
+        struct thread *to_be_woken = NULL;
+        struct ordered_list *waiters = lock_get_waiters(lock);
+        if (!ordered_list_empty(waiters)) {
+            to_be_woken = list_entry(
+                    ordered_list_front(waiters),
+                    struct thread,
+                    elem
             );
+
+            /* Revoke donations of all waiters.
+             * Explicitly revoke the head's. Move the tails' donations to the
+             * head */
+            struct list_elem *e = list_next(&to_be_woken->elem);
+            struct thread *still_waiting;
+            for (; e != list_end(&waiters->list); e = list_next(e)) {
+                still_waiting = list_entry(e, struct thread, elem);
+
+                list_remove(&still_waiting->donor_elem);
+                list_push_front(
+                        &to_be_woken->priority.donors,
+                        &still_waiting->donor_elem
+                );
+            }
+
+            list_remove(&to_be_woken->donor_elem);
+
+            // to_be_woken now has the donations of the other waiters. We need to
+            // null out it's lock_blocked_by and recalculate its priority.
+            to_be_woken->priority.lock_blocked_by = NULL;
+            thread_recalculate_effective_priority(to_be_woken);
         }
 
-        list_remove(&to_be_woken->donor_elem);
-
-        // to_be_woken now has the donations of the other waiters. We need to
-        // null out it's lock_blocked_by and recalculate its priority.
-        to_be_woken->priority.lock_blocked_by = NULL;
-        thread_recalculate_effective_priority(to_be_woken);
+        // Recalculate effective priority of releasing thread.
+        thread_recalculate_effective_priority(thread_current());
     }
-
-    // Recalculate effective priority of releasing thread.
-    thread_recalculate_effective_priority(thread_current());
 
     intr_set_level(old_level);
     sema_up(&lock->semaphore);
@@ -391,7 +394,7 @@ cond_signal(struct condition *cond, struct lock *lock UNUSED) {
     ASSERT (lock_held_by_current_thread(lock));
 
     if (!ordered_list_empty(&cond->waiters)) {
-        ordered_list_resort(&cond->waiters);
+        if (!thread_mlfqs) { ordered_list_resort(&cond->waiters); }
         sema_up(
                 &list_entry (ordered_list_pop_front(&cond->waiters),
                              struct semaphore_elem, elem)->semaphore
