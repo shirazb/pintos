@@ -260,7 +260,7 @@ lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread(lock));
 
-//    enum intr_level old_level = intr_disable();
+    enum intr_level old_level = intr_disable();
 
     // Thread is releasing; clear lock's holder.
     lock->holder = NULL;
@@ -271,6 +271,7 @@ lock_release(struct lock *lock) {
         struct thread *to_be_woken = NULL;
         struct ordered_list *waiters = lock_get_waiters(lock);
         if (!ordered_list_empty(waiters)) {
+//            enum intr_level old_level = intr_disable();
             to_be_woken = list_entry(
                     ordered_list_front(waiters),
                     struct thread,
@@ -292,6 +293,8 @@ lock_release(struct lock *lock) {
                 );
             }
 
+//            intr_set_level(old_level);
+
             list_remove(&to_be_woken->donor_elem);
 
             // to_be_woken now has the donations of the other waiters. We need to
@@ -304,7 +307,7 @@ lock_release(struct lock *lock) {
         thread_recalculate_effective_priority(thread_current());
     }
 
-//    intr_set_level(old_level);
+    intr_set_level(old_level);
     sema_up(&lock->semaphore);
 }
 
@@ -330,7 +333,7 @@ lock_held_by_current_thread(const struct lock *lock) {
 struct semaphore_elem {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
-    int waiting_thread_priority;        /* Priority of thread usinglock_acquire the condvar */
+    int waiting_thread_priority;        /* Priority of thread using lock_acquire the condvar */
 };
 
 /* Initializes condition variable COND.  A condition variable

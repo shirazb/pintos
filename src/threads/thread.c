@@ -429,8 +429,13 @@ thread_set_priority(int new_priority) {
     struct thread *curr_thread = thread_current();
 
     int old_priority = curr_thread->priority.base;
+
+    // Once base is set, effective must be correct by the next schedule.
+    enum intr_level old_level = intr_disable();
     curr_thread->priority.base = new_priority;
     thread_recalculate_effective_priority(curr_thread);
+
+    intr_set_level(old_level);
 
     // May have to yield if base priority has decreased.
     if (new_priority < old_priority) {
@@ -777,6 +782,8 @@ static void
 refresh_thread_queue(struct thread *t) {
     ASSERT(t != NULL);
 
+    enum intr_level old_level = intr_disable();
+
     // For use in THREAD_BLOCKED case.
     struct lock *lock_blocked_by = t->priority.lock_blocked_by;
 
@@ -795,10 +802,13 @@ refresh_thread_queue(struct thread *t) {
                     &t->elem
             );
         }
+        break;
 
     default:
         break;
     }
+
+    intr_set_level(old_level);
 }
 
 /*
@@ -840,13 +850,18 @@ static struct thread *
 thread_get_donatee(struct thread *t) {
     ASSERT(t != NULL);
 
+    enum intr_level old_level = intr_disable();
+
     struct lock *lock_blocked_by = t->priority.lock_blocked_by;
 
     if (lock_blocked_by != NULL) {
         ASSERT(t->status == THREAD_BLOCKED);
         ASSERT(lock_blocked_by->holder != NULL);
+        intr_set_level(old_level);
         return lock_blocked_by->holder;
     } else {
+        intr_set_level(old_level);
         return NULL;
     }
+
 }

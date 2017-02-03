@@ -11,8 +11,8 @@ static thread_func producer;
 static struct lock lock;
 static struct list ints1;
 static struct list ints2;
-static int int_list_size = 10;
-static int num_threads = 250;
+static int int_list_size = 100;
+static int num_threads = 100;
 
 struct int_elem {
     int val;
@@ -36,22 +36,27 @@ test_priority_donate_synch(void) {
     }
 
     // Main will create all threads first
-    thread_set_priority(PRI_MAX);
+    thread_set_priority(PRI_DEFAULT);
+    lock_acquire(&lock);
 
     // Create producers
     for (int i = 0; i < num_threads; i++) {
-        thread_create("producer", PRI_DEFAULT, producer,
+        thread_create("producer", PRI_DEFAULT + 1 + (i % 3), producer,
                 NULL);
     }
+
+    // Run all producers
+    lock_release(&lock);
 
     // Create consumers
+    lock_acquire(&lock);
     for (int i = 0; i < num_threads; i++) {
-        thread_create("consumer", PRI_DEFAULT - 1, consumer,
+        thread_create("consumer", PRI_DEFAULT + 1 + (i % 3), consumer,
                 NULL);
     }
 
-    // Now producers then consumers run
-    thread_set_priority(PRI_MIN);
+    // Run all consumers
+    lock_release(&lock);
 
     // Print ints1
     puts("ints1 = [");
