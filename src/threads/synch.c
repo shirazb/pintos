@@ -216,13 +216,14 @@ lock_acquire(struct lock *lock) {
     if (!thread_mlfqs) {
         ASSERT(curr->priority.lock_blocked_by == NULL);
 
+        enum intr_level old_level = intr_disable();
         if (lock_holder != NULL) {
             curr->priority.lock_blocked_by = lock;
             list_push_front(&lock_holder->priority.donors, &curr->donor_elem);
             thread_recalculate_effective_priority(lock_holder);
         }
+        intr_set_level(old_level);
     }
-
 
     sema_down(&lock->semaphore);
     lock->holder = curr;
@@ -259,7 +260,7 @@ lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread(lock));
 
-    enum intr_level old_level = intr_disable();
+//    enum intr_level old_level = intr_disable();
 
     // Thread is releasing; clear lock's holder.
     lock->holder = NULL;
@@ -303,7 +304,7 @@ lock_release(struct lock *lock) {
         thread_recalculate_effective_priority(thread_current());
     }
 
-    intr_set_level(old_level);
+//    intr_set_level(old_level);
     sema_up(&lock->semaphore);
 }
 

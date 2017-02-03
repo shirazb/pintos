@@ -146,6 +146,7 @@ set(SOURCE_FILES
     src/tests/threads/priority-fifo.c
     src/tests/threads/priority-preempt.c
     src/tests/threads/priority-sema.c
+    src/tests/threads/priority-donate-synch.c
     src/tests/threads/tests.c
     src/tests/threads/tests.h
     src/tests/userprog/no-vm/multi-oom.c
