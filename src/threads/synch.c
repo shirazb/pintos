@@ -260,12 +260,12 @@ lock_release(struct lock *lock) {
     ASSERT (lock != NULL);
     ASSERT (lock_held_by_current_thread(lock));
 
-    enum intr_level old_level = intr_disable();
 
     // Thread is releasing; clear lock's holder.
     lock->holder = NULL;
 
     if (!thread_mlfqs) {
+        enum intr_level old_level = intr_disable();
         /* Have everything in the tail of the waiters list move their donation to
    the head of the waiters list */
         struct thread *to_be_woken = NULL;
@@ -305,9 +305,9 @@ lock_release(struct lock *lock) {
 
         // Recalculate effective priority of releasing thread.
         thread_recalculate_effective_priority(thread_current());
+        intr_set_level(old_level);
     }
 
-    intr_set_level(old_level);
     sema_up(&lock->semaphore);
 }
 
