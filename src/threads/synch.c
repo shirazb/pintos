@@ -212,13 +212,16 @@ lock_acquire(struct lock *lock) {
     struct thread *curr = thread_current();
     struct thread *lock_holder = lock->holder;
 
-    ASSERT(curr->priority.lock_blocked_by == NULL);
+    if (!thread_mlfqs) {
+        ASSERT(curr->priority.lock_blocked_by == NULL);
 
-    if (lock_holder != NULL) {
-        curr->priority.lock_blocked_by = lock;
-        list_push_front(&lock_holder->priority.donors, &curr->donor_elem);
-        thread_recalculate_effective_priority(lock_holder);
+        if (lock_holder != NULL) {
+            curr->priority.lock_blocked_by = lock;
+            list_push_front(&lock_holder->priority.donors, &curr->donor_elem);
+            thread_recalculate_effective_priority(lock_holder);
+        }
     }
+
 
     sema_down(&lock->semaphore);
     lock->holder = curr;
