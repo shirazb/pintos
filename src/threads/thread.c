@@ -481,15 +481,26 @@ thread_get_nice(void) {
 int
 thread_get_load_avg(void) {
 
-    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(load_avg, 100));
+    //Disabling interrupts in order to prevent race conditions in getting
+    enum intr_level old_level = intr_disable();
+    fixed_point_t curr_load_avg = load_avg;
+    intr_set_level(old_level);
+
+    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(curr_load_avg, 100));
 
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu(void) {
-    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(thread_current()->recent_cpu,
-                                                   100));
+
+    //Disabling interrupts in order to prevent race conditions in getting
+    enum intr_level old_level = intr_disable();
+    fixed_point_t curr_recent_cpu = thread_current()->recent_cpu;
+    intr_set_level(old_level);
+
+    return CAST_FP_TO_INT_ROUND_NEAREST(MUL_FP_INT(curr_recent_cpu, 100));
+
 }
 
 /*
