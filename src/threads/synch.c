@@ -133,10 +133,13 @@ sema_up(struct semaphore *sema) {
     // has a higher priority than the current thread. However, if this
     // thread is not awoken_thread, and it didn't before, it still won't.
     // So we assume the case where it is awoken_thread.
-    if (!intr_context() && awoken_thread != NULL) {
-        thread_yield();
+    if (awoken_thread != NULL) {
+        if (intr_context()) {
+            intr_yield_on_return();
+        } else {
+            thread_yield();
+        }
     }
-
     intr_set_level(old_level);
 }
 
