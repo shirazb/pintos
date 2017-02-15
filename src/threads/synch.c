@@ -129,17 +129,20 @@ sema_up(struct semaphore *sema) {
     }
     sema->value++;
 
-    // Technically, we should be checking that the next thread to run now
-    // has a higher priority than the current thread. However, if this
-    // thread is not awoken_thread, and it didn't before, it still won't.
-    // So we assume the case where it is awoken_thread.
-    if (awoken_thread != NULL) {
+    if (awoken_thread != NULL &&
+       (!thread_mlfqs && awoken_thread->priority.effective >
+                                 thread_current()->priority.effective) ||
+       (thread_mlfqs && awoken_thread->priority.base >
+                                thread_current()->priority.base))
+    {
         if (intr_context()) {
             intr_yield_on_return();
         } else {
             thread_yield();
         }
     }
+
+    // TODO: Should this be before the yeilds?
     intr_set_level(old_level);
 }
 
