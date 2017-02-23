@@ -16,14 +16,13 @@ struct open_file {
     struct hash_elem fd_elem;    /* To put fds in a hash table */
 };
 
-// TODO: Make process deinit function that frees hashmaps.
 struct process {
     pid_t pid;               /* Process id of a process  */
     int exit_status;         /* Exit status of a thread. */
     struct hash open_files;  /* List of file descriptors of open files */
     struct semaphore wait_till_death; /* When parent calls process_wait(), it can block until this process finishes. */
     bool parent_is_alive;     /* So thread knows to free this struct once dead - this information is no longer required as parent cannot wait on this process. */
-    struct hash children;     /* Hash<TID, struct thread *> of child processes. */
+    struct list children;     /* Hash<TID, struct thread *> of child processes. */
     struct lock process_lock; /* Locks a whole process struct in order to
                                  avoid race conditions. */
 };

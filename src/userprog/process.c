@@ -30,17 +30,14 @@ static thread_func start_process NO_RETURN;
 
 static int parse_args(char *file_name, char **argv);
 
-static void init_process(struct process *p);
+static void init_process(struct process *p, struct process *parent);
 
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
-
-static hash_hash_func process_hash;
-static hash_less_func process_less;
 
 static hash_hash_func open_file_hash;
 static hash_less_func open_file_less;
 
-static void notify_child_of_exit(struct hash_elem *a, void *aux UNUSED);
+static void notify_child_of_exit(struct process *p);
 
 static pid_t allocate_pid(void);
 
@@ -79,8 +76,7 @@ setup_test_process(void) {
         ASSERT(false);
     }
 
-    init_process(p);
-
+    init_process(p, NULL);
     cur->process = p;
 }
 
@@ -92,32 +88,39 @@ tear_down_test_process(void) {
     ASSERT(strcmp(thread_current()->name, TEST_PROC_NAME) == 0);
 
     struct process *cur = process_current();
-    hash_destroy(&cur->children, NULL);
     free(cur);
 }
 
 /*
  * Initialises the process struct of a thread.
  */
-// TODO: Ensure process is init'd before any other process accesses its
-// struct. Disable interrupts maybe?
 static void
-init_process(struct process *p) {
+init_process(struct process *p, struct process *parent) {
     ASSERT(p != NULL);
 
     enum intr_level old_level = intr_disable();
 
     lock_init(&p->process_lock);
-
     lock_acquire(&p->process_lock);
-    p->pid = allocate_pid();
-    printf("--- DEBUG: Init'd the lock for pid %i.\n", p->pid);
+
+    // Init the process struct.
     p->exit_status = EXIT_FAILURE;
     hash_init(&p->open_files, open_file_hash, open_file_less, NULL);
     sema_init(&p->wait_till_death, 0);
     p->parent_is_alive = true;
-    hash_init(&p->children, process_hash, process_less, NULL);
-    printf("--- DEBUG: Init'd the hash children for pid %i.\n", p->pid);
+    list_init(&p->children);
+
+    // If there is no parent, this is the kernel test thread.
+    if (parent == NULL) {
+        p->pid = TEST_PROC_PID;
+    } else {
+        // TODO: Synch access to parent process struct
+        // Makes current process a child of the parent
+        list_push_front(&parent->children, &thread_current()->child_proc_elem);
+
+        p->pid = allocate_pid();
+    };
+
     lock_release(&p->process_lock);
 
     intr_set_level(old_level);
@@ -239,6 +242,7 @@ start_process(void *start_proc_info) {
     char *file_name = start_info->fn_copy;
     sema_up(&start_info->child_has_read_info);
 
+
     // Malloc and initialise the process struct.
     struct process *p = malloc(sizeof(struct process));
 
@@ -247,13 +251,8 @@ start_process(void *start_proc_info) {
         thread_exit();
     }
 
-    init_process(p);
+    init_process(p, parent);
     thread_current()->process = p;
-
-    // Makes current process a child of the parent
-    hash_insert(&parent->children, &thread_current()->child_proc_elem);
-
-    printf("--- DEBUG: Added child to hash children.\n");
 
     /* Start setting up the stack. */
 
@@ -298,7 +297,7 @@ start_process(void *start_proc_info) {
     }
 
     // argv no longer needed as it has been pushed TODO: Check this
-//     palloc_free_page(file_name);
+//    palloc_free_page(file_name);
 
     //Rounding the stack pointer down to a multiple of 4 as word-aligned
     // access is faster
@@ -391,16 +390,22 @@ parse_args(char *file_name, char **argv) {
 int
 process_wait(tid_t child_tid) {
     struct process *p = process_current();
-    struct thread search_child_thread;
-    search_child_thread.tid = child_tid;
 
     lock_acquire(&p->process_lock);
 
-    struct thread *child_thread = hash_entry(
-            hash_find(&p->children, &search_child_thread.child_proc_elem),
-            struct thread,
-            child_proc_elem
-    );
+    struct thread *child_thread = NULL;
+    struct thread *curr = NULL;
+    for(struct list_elem *e = list_begin(&p->children);
+        e != list_end(&p->children);
+        e = list_next(e))
+    {
+        curr = list_entry(e, struct thread, child_proc_elem);
+        if (curr->tid == child_tid) {
+            child_thread = curr;
+            break;
+        }
+    }
+
     lock_release(&p->process_lock);
 
     // If tid given is not of a child thread, fail.
@@ -411,19 +416,24 @@ process_wait(tid_t child_tid) {
     struct process *child_proc = child_thread->process;
 
     // If child already waited on or was killed by kernel, fail.
+
     if (child_proc == NULL) {
         return EXIT_FAILURE;
-    } else {
-        lock_acquire(&child_proc->process_lock);
-        if (child_proc->exit_status == EXIT_FAILURE) {
-            lock_release(&child_proc->process_lock);
-            return EXIT_FAILURE;
-        }
-        lock_release(&child_proc->process_lock);
     }
 
     // Wait for child process to finish then get its exit status.
     sema_down(&child_proc->wait_till_death);
+
+    printf("acquiring the child's lock\n");
+    lock_acquire(&child_proc->process_lock);
+    if (child_proc->exit_status == EXIT_FAILURE) {
+        lock_release(&child_proc->process_lock);
+        printf("released the child's lock: exit failure\n");
+        return EXIT_FAILURE;
+    }
+    lock_release(&child_proc->process_lock);
+    printf("released the child's lock: exit success\n");
+
     int exit_status = child_proc->exit_status;
 
     // Free the child proc, it is no longer needed.
@@ -440,7 +450,6 @@ process_destroy(struct process *p) {
     ASSERT(p != NULL);
     lock_acquire(&p->process_lock);
     hash_destroy(&p->open_files, NULL);
-    hash_destroy(&p->children, NULL);
     lock_release(&p->process_lock);
     free(p);
 }
@@ -470,9 +479,17 @@ process_exit(void) {
     struct process *proc_curr = process_current();
 
     lock_acquire(&proc_curr->process_lock);
-    hash_apply(&proc_curr->children, notify_child_of_exit);
 
-    // TODO: Race condition with when parent writes to this.
+    struct thread *child_thread = NULL;
+    for(struct list_elem *e = list_begin(&proc_curr->children);
+        e != list_end(&proc_curr->children);
+        e = list_next(e))
+    {
+        child_thread = list_entry(e, struct thread, child_proc_elem);
+        notify_child_of_exit(child_thread->process);
+
+    }
+
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
@@ -516,14 +533,12 @@ process_activate(void) {
  * Tells the child that its parent is dead.
  */
 static void
-notify_child_of_exit(struct hash_elem *a, void *aux UNUSED) {
-    struct process *p_a = hash_entry(a, struct thread,
-                                     child_proc_elem)->process;
-    ASSERT(p_a != NULL);
+notify_child_of_exit(struct process *p) {
+    ASSERT(p != NULL);
 
-    lock_acquire(&p_a->process_lock);
-    p_a->parent_is_alive = false;
-    lock_release(&p_a->process_lock);
+    lock_acquire(&p->process_lock);
+    p->parent_is_alive = false;
+    lock_release(&p->process_lock);
 }
 
 /* We load ELF binaries.  The following definitions are taken
@@ -861,51 +876,6 @@ install_page(void *upage, void *kpage, bool writable) {
             && pagedir_set_page(t->pagedir, upage, kpage, writable));
 }
 
-/*
- * Hash function for processes. Processes are hashed by their pids, which are
- * unique. Guarentees O(1) time.
- */
-static unsigned
-process_hash(const struct hash_elem *a, void *aux UNUSED) {
-    struct process *p = hash_entry(
-            a,
-            struct thread, child_proc_elem
-    )->process;
-
-    lock_acquire(&p->process_lock);
-    pid_t pid = p->pid;
-    lock_release(&p->process_lock);
-
-    return (unsigned) pid;
-}
-
-/*
- * Less function for processes. Done by pid.
- */
-static bool
-process_less(const struct hash_elem *a, const struct hash_elem *b,
-             void *aux UNUSED) {
-    struct thread *t_a = hash_entry(
-            a,
-            struct thread,
-            child_proc_elem
-    );
-    struct thread *t_b = hash_entry(
-            b,
-            struct thread,
-            child_proc_elem
-    );
-
-    lock_acquire(&t_a->process->process_lock);
-    int pid_a = t_a->process->pid;
-    lock_release(&t_a->process->process_lock);
-
-    lock_acquire(&t_b->process->process_lock);
-    int pid_b = t_b->process->pid;
-    lock_release(&t_b->process->process_lock);
-
-    return pid_a < pid_b;
-}
 
 /*
  * Hash function for open files.
