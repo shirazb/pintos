@@ -162,11 +162,13 @@ read_user_word(uint8_t *uaddr) {
 
     for (int i = 0; i < n; i++) {
         byte_addr = uaddr + i;
+
         fail_if_invalid_user_addr(byte_addr);
         temp = get_user(byte_addr);
         if (temp == -1) {
             exit_process(EXIT_FAILURE);
         }
+
         temp <<= i * BYTE_SIZE;
         word = word | temp;
     }
@@ -184,6 +186,17 @@ put_user(uint8_t *udst, uint8_t byte) {
     return error_code != -1;
 }
 
+
+/*
+ * Calls thread exit if addr is null or not in user space
+ */
+static void
+fail_if_invalid_user_addr(const void *addr) {
+    if (addr == NULL || !is_user_vaddr(addr)) {
+        exit_process(EXIT_FAILURE);
+    }
+}
+
 /*
  * Validates stack pointer then gets a parameter from the stack.
  */
@@ -195,16 +208,6 @@ get_syscall_param_addr(void *esp, int index) {
     // Remove syscall number + index of argument
     // Note, all syscall parameters in Pintos are 32 bits.
     return (uint8_t *) ((uint32_t *) esp + 1 + index);
-}
-
-/*
- * Calls thread exit if addr is null or not in user space
- */
-static void
-fail_if_invalid_user_addr(const void *addr) {
-    if (addr == NULL || !is_user_vaddr(addr)) {
-        exit_process(EXIT_FAILURE);
-    }
 }
 
 /*
@@ -283,16 +286,17 @@ sys_wait(struct intr_frame *f) {
 
 static void
 sys_create(struct intr_frame *f) {
-    tid_t file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
-    tid_t initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
+    char *file_name = (char *) read_user_word(get_syscall_param_addr(f->esp,
+                                                                     0));
+    int initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
 //    arg2 is supposed to be of type off_t which is a int32
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
-        return;
+        NOT_REACHED();
     }
 
     lock_filesys();
-    bool success = filesys_create((char *)file_name, initial_size);
+    bool success = filesys_create(file_name, initial_size);
     f->eax = * (uint32_t *) &success;
     release_filesys();
 }
@@ -305,13 +309,16 @@ static void sys_remove(struct intr_frame *f) {
 }
 
 static void sys_open(struct intr_frame *f) {
-    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 0));
+    char * file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
+
+    if (file_name == NULL) {
+        exit_process(EXIT_FAILURE);
+        NOT_REACHED();
+    }
+
     lock_filesys();
-    struct file * file = filesys_open((char *) arg);
+    struct file * file = filesys_open(file_name);
     release_filesys();
-//    is this best way to check if file is empty/valid?
-//    how to add file to thread?
-//    f->eax = (file == NULL) ? -1 : file
 }
 
 // FIXME: Is this the right file?
