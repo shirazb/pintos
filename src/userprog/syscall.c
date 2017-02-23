@@ -289,10 +289,8 @@ sys_wait(struct intr_frame *f) {
 
 static void
 sys_create(struct intr_frame *f) {
-    char *file_name = (char *) read_user_word(get_syscall_param_addr(f->esp,
-                                                                     0));
-    int initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
-//    arg2 is supposed to be of type off_t which is a int32
+    char *file_name = (char *) read_user_word(get_syscall_param_addr(f->esp, 0));
+    off_t initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
         NOT_REACHED();
@@ -300,8 +298,9 @@ sys_create(struct intr_frame *f) {
 
     lock_filesys();
     bool success = filesys_create(file_name, initial_size);
-    f->eax = * (uint32_t *) &success;
     release_filesys();
+
+    return_value(f, &success);
 }
 
 static void sys_remove(struct intr_frame *f) {
