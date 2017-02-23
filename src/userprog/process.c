@@ -424,15 +424,12 @@ process_wait(tid_t child_tid) {
     // Wait for child process to finish then get its exit status.
     sema_down(&child_proc->wait_till_death);
 
-    printf("acquiring the child's lock\n");
     lock_acquire(&child_proc->process_lock);
     if (child_proc->exit_status == EXIT_FAILURE) {
         lock_release(&child_proc->process_lock);
-        printf("released the child's lock: exit failure\n");
         return EXIT_FAILURE;
     }
     lock_release(&child_proc->process_lock);
-    printf("released the child's lock: exit success\n");
 
     int exit_status = child_proc->exit_status;
 
@@ -489,6 +486,8 @@ process_exit(void) {
         notify_child_of_exit(child_thread->process);
 
     }
+
+    printf("%s: exit(%i)\n", curr->name, proc_curr->exit_status);
 
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);

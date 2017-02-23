@@ -220,7 +220,6 @@ return_value(struct intr_frame *f, void *val) {
  */
 static void
 exit_process(int status) {
-    printf("--- DEBUG: in exit_process()\n");
     struct thread *curr = thread_current();
 
     ASSERT(curr != NULL)

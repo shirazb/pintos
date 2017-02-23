@@ -290,17 +290,11 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
-#ifdef USERPROG
-#endif
-
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
-  printf("number of ready threads = %i\n", (int) list_size(&ready_list));
-  printf("next to run is %s", list_entry(list_front(&ready_list), struct
-          thread, elem)->name);
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
