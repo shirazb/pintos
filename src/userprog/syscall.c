@@ -287,7 +287,7 @@ sys_create(struct intr_frame *f) {
     tid_t initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
 //    arg2 is supposed to be of type off_t which is a int32
     if (file_name == NULL) {
-        f->eax = false;
+        exit_process(EXIT_FAILURE);
         return;
     }
 
