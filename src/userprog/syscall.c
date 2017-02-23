@@ -12,6 +12,9 @@
 
 #define BYTE_SIZE 8
 
+#define decl_paramter(TYPE, PARAM, ESP, INDEX) int __word_PARAM =read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
+TYPE PARAM = * (TYPE *) &__word_PARAM;
+
 /* System call handler */
 static void syscall_handler(struct intr_frame *);
 static int get_syscall_number(struct intr_frame *);
@@ -309,7 +312,8 @@ static void sys_remove(struct intr_frame *f) {
 }
 
 static void sys_open(struct intr_frame *f) {
-    char * file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
+//    char * file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
+    decl_paramter(char *, file_name, f->esp, 0)
 
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
