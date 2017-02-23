@@ -30,7 +30,8 @@ static thread_func start_process NO_RETURN;
 
 static int parse_args(char *file_name, char **argv);
 
-static void init_process(struct process *p, struct process *parent);
+static void init_process(struct process *p, struct process *parent,
+                         char *file_name);
 
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
@@ -76,7 +77,7 @@ setup_test_process(void) {
         ASSERT(false);
     }
 
-    init_process(p, NULL);
+    init_process(p, NULL, "main");
     cur->process = p;
 }
 
@@ -88,14 +89,14 @@ tear_down_test_process(void) {
     ASSERT(strcmp(thread_current()->name, TEST_PROC_NAME) == 0);
 
     struct process *cur = process_current();
-    free(cur);
+    process_destroy(cur);
 }
 
 /*
  * Initialises the process struct of a thread.
  */
 static void
-init_process(struct process *p, struct process *parent) {
+init_process(struct process *p, struct process *parent, char *file_name) {
     ASSERT(p != NULL);
 
     enum intr_level old_level = intr_disable();
@@ -109,6 +110,8 @@ init_process(struct process *p, struct process *parent) {
     sema_init(&p->wait_till_death, 0);
     p->parent_is_alive = true;
     list_init(&p->children);
+//    p->file_name = malloc(strlen(file_name));
+    p->file_name = file_name;
 
     // If there is no parent, this is the kernel test thread.
     if (parent == NULL) {
@@ -242,18 +245,6 @@ start_process(void *start_proc_info) {
     char *file_name = start_info->fn_copy;
     sema_up(&start_info->child_has_read_info);
 
-
-    // Malloc and initialise the process struct.
-    struct process *p = malloc(sizeof(struct process));
-
-    // Couldn't malloc process struct, give up.
-    if (p == NULL) {
-        thread_exit();
-    }
-
-    init_process(p, parent);
-    thread_current()->process = p;
-
     /* Start setting up the stack. */
 
     struct intr_frame if_;
@@ -272,11 +263,22 @@ start_process(void *start_proc_info) {
     //Setting file name to be the first arg in parsed list of args
     file_name = argv[0];
 
+    // Malloc and initialise the process struct.
+    struct process *p = malloc(sizeof(struct process));
+
+    // Couldn't malloc process struct, give up.
+    if (p == NULL) {
+        thread_exit();
+    }
+
+    init_process(p, parent, file_name);
+    thread_current()->process = p;
+
     //Leave thread if loading of executable fails
     success = load(file_name, &if_.eip, &if_.esp);
     if (!success) {
         palloc_free_page(file_name);
-        thread_exit();
+        process_exit();
     }
 
 
@@ -486,8 +488,6 @@ process_exit(void) {
         notify_child_of_exit(child_thread->process);
 
     }
-
-    printf("%s: exit(%i)\n", curr->name, proc_curr->exit_status);
 
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);

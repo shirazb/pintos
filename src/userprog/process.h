@@ -18,6 +18,7 @@ struct open_file {
 
 struct process {
     pid_t pid;               /* Process id of a process  */
+    char *file_name;
     int exit_status;         /* Exit status of a thread. */
     struct hash open_files;  /* List of file descriptors of open files */
     struct semaphore wait_till_death; /* When parent calls process_wait(), it can block until this process finishes. */
