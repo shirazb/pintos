@@ -31,4 +31,6 @@ enum
     SYS_INUMBER                 /* Returns the inode number for a fd. */
   };
 
+#define NUM_SYSCALLS 20
+
 #endif /* lib/syscall-nr.h */
