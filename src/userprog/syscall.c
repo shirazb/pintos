@@ -248,9 +248,6 @@ sys_exit(struct intr_frame *f) {
     uint8_t *exit_status_addr = get_syscall_param_addr(f->esp, 0);
     int exit_status = read_user_word(exit_status_addr);
 
-    printf("%s: exit(%i)\n",
-           process_current()->file_name, exit_status);
-
     exit_process(exit_status);
 }
 

@@ -489,6 +489,8 @@ process_exit(void) {
 
     }
 
+    printf("%s: exit(%i)\n", proc_curr->file_name, proc_curr->exit_status);
+
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
