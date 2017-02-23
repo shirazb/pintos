@@ -283,23 +283,29 @@ sys_wait(struct intr_frame *f) {
 
 static void
 sys_create(struct intr_frame *f) {
-    tid_t arg1 = read_user_word(get_syscall_param_addr(f->esp, 1));
-    tid_t arg2 = read_user_word(get_syscall_param_addr(f->esp, 2));
-    lock_filesys();
+    tid_t file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
+    tid_t initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
 //    arg2 is supposed to be of type off_t which is a int32
-    f->eax = filesys_create((char *)arg1, arg2);
+    if (file_name == NULL) {
+        f->eax = false;
+        return;
+    }
+
+    lock_filesys();
+    bool success = filesys_create((char *)file_name, initial_size);
+    f->eax = * (uint32_t *) &success;
     release_filesys();
 }
 
 static void sys_remove(struct intr_frame *f) {
-    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 1));
+    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 0));
     lock_filesys();
     f->eax = filesys_remove((char *) arg);
     release_filesys();
 }
 
 static void sys_open(struct intr_frame *f) {
-    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 1));
+    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 0));
     lock_filesys();
     struct file * file = filesys_open((char *) arg);
     release_filesys();
@@ -310,7 +316,7 @@ static void sys_open(struct intr_frame *f) {
 
 // FIXME: Is this the right file?
 static void sys_filesize(struct intr_frame *f) {
-    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 1));
+    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 0));
     lock_filesys();
     struct file *file = filesys_open((char *) arg);
     release_filesys();
@@ -324,14 +330,11 @@ read (0 at end of file), or -1 if the file could not be read (due to a condition
 end of file). Fd 0 reads from the keyboard using input_getc(), which can be found in
 ‘src/devices/input.h’.*/
 static void sys_read(struct intr_frame *f) {
-    tid_t fd = read_user_word(get_syscall_param_addr(f->esp, 1));
-    tid_t buffer = read_user_word(get_syscall_param_addr(f->esp, 2));
-    tid_t size = read_user_word(get_syscall_param_addr(f->esp, 3));
+    tid_t fd = read_user_word(get_syscall_param_addr(f->esp, 0));
+    tid_t buffer = read_user_word(get_syscall_param_addr(f->esp, 1));
+    tid_t size = read_user_word(get_syscall_param_addr(f->esp, 2));
 
 //    f->eax = (/*if file can be read*/) ? input_getc() : -1;
-
-
-//    printf("ERROR SYSCALL NOT IMPLEMENTED: read()");
 }
 
 /*
@@ -378,8 +381,9 @@ sys_write(struct intr_frame *f) {
 static void
 sys_seek(struct intr_frame *f) {
 //    get arguments
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 1));
-    unsigned position = (unsigned) read_user_word(get_syscall_param_addr(f->esp, 2));
+    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
+    unsigned position = (unsigned) read_user_word(
+            get_syscall_param_addr(f->esp, 1));
 
     lock_filesys();
 //    get file descriptor
@@ -397,7 +401,7 @@ Returns the position of the next byte to be read or written in open file fd, exp
 from the beginning of the file.*/
 static void sys_tell(struct intr_frame *f) {
     // get argument
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 1));
+    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
 
     lock_filesys();
 
@@ -420,7 +424,7 @@ Closes file descriptor fd. Exiting or terminating a process implicitly closes al
 descriptors, as if by calling this function for each one.*/
 static void sys_close(struct intr_frame *f) {
 //   get argument
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 1));
+    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
 
     struct open_file *open_file = process_get_open_file_struct (fd);
 //    close_syscall(open_file, true);
@@ -469,29 +473,29 @@ including the stack or pages mapped at executable load time. It must also fail i
 because some Pintos code assumes virtual page 0 is not mapped. Finally, file descriptors 0
 and 1, representing console input and output, are not mappable.*/
 static void sys_mmap(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: mmap()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: mmap()");
 }
 
 static void sys_munmap(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: munmao()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: munmao()");
 }
 
 static void sys_chdir(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: chdir()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: chdir()");
 }
 
 static void sys_mkdir(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: mkdir()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: mkdir()");
 }
 
 static void sys_readdir(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: readdir()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: readdir()");
 }
 
 static void sys_isdir(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: isdir()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: isdir()");
 }
 
 static void sys_inumber(struct intr_frame *f) {
-    printf("ERROR SYSCALL NOT IMPLEMENTED: inumber()");
+    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: inumber()");
 }
