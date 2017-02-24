@@ -268,7 +268,7 @@ static void
 sys_exit(struct intr_frame *f) {
     ASSERT(f != NULL);
 
-    decl_parameter(uint8_t, exit_status, f->esp, 0);
+    decl_parameter(int, exit_status, f->esp, 0);
 
     exit_process(exit_status);
 }
