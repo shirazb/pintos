@@ -365,15 +365,16 @@ static void sys_open(struct intr_frame *f) {
     return_value(f, &fd);
 }
 
-// FIXME: Is this the right file?
+/*int filesize (int fd)
+Returns the size, in bytes, of the file open as fd. */
 static void sys_filesize(struct intr_frame *f) {
-    decl_parameter(char *, file_name, f->esp, 0);
+    decl_parameter(int, file_name, f->esp, 0);
 
     lock_filesys();
-    struct file *file = filesys_open(file_name);
+    struct open_file_s *open_file_s = process_get_open_file_struct(file_name);
+    off_t length = file_length(open_file_s->open_file);
     release_filesys();
 
-    off_t length = file_length(file);
     return_value(f, &length);
 }
 
@@ -400,8 +401,10 @@ static void sys_read(struct intr_frame *f) {
 
         return_value(f, buff);
     } else if (fd == -1) {
-        return_value(f, EXIT_FAILURE);
+        int exit_failure = EXIT_FAILURE;
+        return_value(f, &exit_failure);
     } else {
+//        TODO: CHeck if fd is valid
         struct open_file_s *open_file_s = process_get_open_file_struct((unsigned int) fd);
 
         if (open_file_s == NULL) {
