@@ -373,7 +373,6 @@ process_wait(tid_t child_tid) {
     int exit_status = child_proc->exit_status;
 
     if (exit_status == EXIT_FAILURE) {
-        lock_release(&child_proc->process_lock);
         return EXIT_FAILURE;
     }
 
