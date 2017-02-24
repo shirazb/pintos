@@ -6,6 +6,7 @@
 #include <filesys/filesys.h>
 #include <filesys/file.h>
 #include <devices/input.h>
+#include <threads/malloc.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
@@ -317,20 +318,49 @@ static void sys_remove(struct intr_frame *f) {
     return_value(f, &success);
 }
 
+static unsigned int generate_fd (struct process *p) {
+    lock_acquire(&p->process_lock);
+    unsigned int fd = p->unique_fd++;
+    lock_release(&p->process_lock);
+
+    return fd;
+}
+
 static void sys_open(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0)
 
     if (file_name == NULL) {
+        ASSERT (false);
         exit_process(EXIT_FAILURE);
         NOT_REACHED();
     }
 
     lock_filesys();
     struct file *file = filesys_open(file_name);
-    release_filesys();
 
-    // TODO: Add this file to process' open files
-    // TODO: Return fd
+    int fd = -1;
+
+    if (file != NULL) {
+        ASSERT (process_current()->unique_fd >= 2);
+
+        // Reserve space for the open_file_s entry to put in the hash entry in process struct
+        struct open_file_s *open_file_s = malloc(sizeof(struct open_file_s));
+
+        // if malloc fails then exit
+        if (open_file_s == NULL) {
+            process_exit();
+            NOT_REACHED();
+        }
+
+        fd = generate_fd(process_current());
+        open_file_s->open_file = file;
+        open_file_s->fd = (unsigned int) fd;
+
+        hash_insert(&process_current()->open_files, &open_file_s->fd_elem);
+    }
+
+    release_filesys();
+    return_value(f, &fd);
 }
 
 // FIXME: Is this the right file?
@@ -350,12 +380,27 @@ Reads size bytes from the file open as fd into buffer. Returns the number of byt
 read (0 at end of file), or -1 if the file could not be read (due to a condition other than
 end of file). Fd 0 reads from the keyboard using input_getc(), which can be found in
 ‘src/devices/input.h’.*/
+// TODO: How can we check if file can be read?
 static void sys_read(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0)
     decl_parameter(void *, buffer, f->esp, 1)
     decl_parameter(unsigned, size, f->esp, 2)
 
-    // return (/*if file can be read*/) ? input_getc() : -1;
+    bool fileCanBeRead = true;
+
+    if (fd == 0) {
+        uint8_t length = input_getc();
+    } else {
+        struct open_file_s *open_file_s = process_get_open_file_struct(fd);
+        struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
+
+//    fd needs to exist and be valid
+        if (fd_elem == NULL) {
+            fileCanBeRead = false;
+        }
+    }
+
+//    return (/*if file can be read*/) ? input_getc() : -1;
 }
 
 /*
@@ -405,7 +450,7 @@ sys_seek(struct intr_frame *f) {
     lock_filesys();
 
     // If descriptor not null use file_seek(file, position)
-    struct open_file *open_file = process_get_open_file_struct (fd);
+    struct open_file_s *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
         file_seek (open_file->open_file, position);
     }
@@ -420,7 +465,7 @@ static void sys_tell(struct intr_frame *f) {
 
     unsigned position = 0;
 
-    struct open_file *open_file = process_get_open_file_struct (fd);
+    struct open_file_s *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
         lock_filesys();
         position = (unsigned) file_tell (open_file->open_file);
@@ -431,6 +476,30 @@ static void sys_tell(struct intr_frame *f) {
     return_value(f, &position);
 }
 
+void
+close_syscall(struct open_file_s *file_descriptor,
+              bool remove_fd_entry) {
+
+    lock_filesys();
+
+    // If the file is found, close it
+    if (file_descriptor != NULL) {
+        file_close(file_descriptor->open_file);
+
+// Remove the entry from the open_files hash table.
+        if (remove_fd_entry) {
+            struct open_file_s open_file;
+            open_file.fd = file_descriptor->fd;
+//            list_remove(&open_file_s.fd_elem);
+            hash_delete(&thread_current()->process->open_files,
+                        &open_file.fd_elem);
+        }
+        free(file_descriptor);
+    }
+
+    release_filesys();
+}
+
 /*
  * void close (int fd)
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file
@@ -438,32 +507,10 @@ descriptors, as if by calling this function for each one.*/
 static void sys_close(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0)
 
-    struct open_file *open_file = process_get_open_file_struct (fd);
-//    close_syscall(open_file, true);
+    struct open_file_s *open_file = process_get_open_file_struct (fd);
+
+    close_syscall(open_file, true);
 }
-
-/*void
-close_syscall (struct file_descriptor *file_descriptor,
-               bool remove_file_descriptor_table_entry)
-{
-  start_file_system_access ();
-
- // Close the file if it was found.
-if (file_descriptor != NULL) {
-file_close (file_descriptor->file);
-
-if (remove_file_descriptor_table_entry) {
-// Remove the entry from the open files hash table.
-struct file_descriptor descriptor;
-descriptor.fd = file_descriptor->fd;
-hash_delete (&thread_current ()->proc_info->file_descriptor_table,
-&descriptor.hash_elem);
-}
-free(file_descriptor);
-}
-
-end_file_system_access ();
-}*/
 
 
 /*mapid_t mmap (int fd, void *addr)
@@ -511,3 +558,4 @@ static void sys_isdir(struct intr_frame *f) {
 static void sys_inumber(struct intr_frame *f) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: inumber()");
 }
+

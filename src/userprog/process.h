@@ -10,7 +10,7 @@
 /* Process identifier type */
 typedef int pid_t;
 
-struct open_file {
+struct open_file_s {
     unsigned int fd;                      /* The file descriptor */
     struct file *open_file;      /* Contents of loaded file */
     struct hash_elem fd_elem;    /* To put fds in a hash table */
@@ -19,6 +19,7 @@ struct open_file {
 struct process {
     pid_t pid;               /* Process id of a process  */
     char *file_name;
+    unsigned int unique_fd;         /* Process' unique fd */
     int exit_status;         /* Exit status of a thread. */
     struct hash open_files;  /* List of file descriptors of open files */
     struct semaphore wait_till_death; /* When parent calls process_wait(), it can block until this process finishes. */
@@ -34,9 +35,9 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 struct process *process_current(void);
-struct file *process_get_open_file(int fd);
+struct file *process_get_open_file(unsigned int fd);
 void process_destroy(struct process *p);
-struct open_file *process_get_open_file_struct(int fd);
+struct open_file_s *process_get_open_file_struct(unsigned int fd);
 
 void setup_test_process(void);
 void tear_down_test_process(void);

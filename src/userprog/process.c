@@ -182,9 +182,9 @@ allocate_pid(void) {
  * Returns NULL if process does not have the given fd.
  */
 struct file *
-process_get_open_file(int fd) {
+process_get_open_file(unsigned int fd) {
     // Get the open file
-    struct open_file search_fd;
+    struct open_file_s search_fd;
     search_fd.fd = fd;
 
 
@@ -194,11 +194,11 @@ process_get_open_file(int fd) {
     struct hash open_files = curr->process->open_files;
     lock_release(&curr->process->process_lock);
 
-    struct open_file *found_fd = hash_entry(
+    struct open_file_s *found_fd = hash_entry(
             hash_find(
                     &open_files, &search_fd.fd_elem
             ),
-            struct open_file,
+            struct open_file_s,
             fd_elem
     );
 
@@ -206,14 +206,14 @@ process_get_open_file(int fd) {
 }
 
 /*Get the open_file struct*/
-struct open_file *
-process_get_open_file_struct(int fd)
+struct open_file_s *
+process_get_open_file_struct(unsigned int fd)
 {
     // fd 0 and 1 are reserved for stout and stderr respectively.
     if (fd < 2)
         return NULL;
 
-    struct open_file open_file;
+    struct open_file_s open_file;
     open_file.fd = fd;
 
     struct thread *t = thread_current ();
@@ -227,8 +227,8 @@ process_get_open_file_struct(int fd)
     if (found_element == NULL)
         return NULL;
 
-    struct open_file *open_file_descriptor = hash_entry (found_element,
-                                                               struct open_file,
+    struct open_file_s *open_file_descriptor = hash_entry (found_element,
+                                                               struct open_file_s,
                                                                fd_elem);
 
     return open_file_descriptor;
