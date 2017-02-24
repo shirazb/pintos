@@ -390,24 +390,31 @@ static void sys_read(struct intr_frame *f) {
     decl_parameter(unsigned, size, f->esp, 2);
 
     bool file_can_be_read = true;
+    int exit_failure = EXIT_FAILURE;
 
-    if (fd == 0) {
-        lock_filesys();
+//  if fd is -1, it means we are trying to read from STDOUT so error
+    if (fd == -1) {
+        return_value(f, &exit_failure);
+    } else if (fd == 0) {
+        //  validate buffer
+        fail_if_invalid_user_addr(buffer);
         uint8_t *buff = (uint8_t *) buffer;
+
+        lock_filesys();
         for (int i = 0 ; i < size; i++) {
             buff[i] = input_getc();
         }
         release_filesys();
 
         return_value(f, buff);
-    } else if (fd == -1) {
-        int exit_failure = EXIT_FAILURE;
-        return_value(f, &exit_failure);
     } else {
-//        TODO: Check if fd is valid
-//      Check if buffer is valid
+//      check fd >= 2
+        if (fd < 2) {
+            return_value(f, &exit_failure);
+        }
+
+        //  validate buffer
         fail_if_invalid_user_addr(buffer);
-//        TODO: Check if size is valid
 
         struct open_file_s *open_file_s = process_get_open_file_struct((unsigned int) fd);
 
@@ -418,7 +425,7 @@ static void sys_read(struct intr_frame *f) {
 
         struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
 
-//    fd needs to exist and be valid
+//      fd needs to exist and be valid
         if (fd_elem == NULL) {
             file_can_be_read = false;
         }
