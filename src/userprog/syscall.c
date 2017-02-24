@@ -404,11 +404,16 @@ static void sys_read(struct intr_frame *f) {
         int exit_failure = EXIT_FAILURE;
         return_value(f, &exit_failure);
     } else {
-//        TODO: CHeck if fd is valid
+//        TODO: Check if fd is valid
+//      Check if buffer is valid
+        fail_if_invalid_user_addr(buffer);
+//        TODO: Check if size is valid
+
         struct open_file_s *open_file_s = process_get_open_file_struct((unsigned int) fd);
 
         if (open_file_s == NULL) {
             exit_process(EXIT_FAILURE);
+            NOT_REACHED();
         }
 
         struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
