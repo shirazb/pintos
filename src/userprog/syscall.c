@@ -23,8 +23,8 @@
  * Reserves the local variable "__word_PARAM".
  * Note that this macro is a statement. Do not use it in an expression.
  */
-#define decl_paramter(TYPE, PARAM, ESP, INDEX) int __word_PARAM = read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
-TYPE PARAM = * (TYPE *) &__word_PARAM;
+#define decl_parameter(TYPE, PARAM, ESP, INDEX) int __word_##PARAM = read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
+TYPE PARAM = * (TYPE *) &__word_##PARAM;
 
 /* System call handler */
 static void syscall_handler(struct intr_frame *);
@@ -263,20 +263,14 @@ static void
 sys_exit(struct intr_frame *f) {
     ASSERT(f != NULL);
 
-    uint8_t *exit_status_addr = get_syscall_param_addr(f->esp, 0);
-    int exit_status = read_user_word(exit_status_addr);
+    decl_parameter(uint8_t, exit_status, f->esp, 0);
 
     exit_process(exit_status);
 }
 
 static void
 sys_exec(struct intr_frame *f) {
-    // TODO: Make a macro that does type punning to ensure bit sequence is
-    // maintinated when casting.
-    // TODO: Make 1 function / macro that gets the addr, derefs its and does
-    // the type pun. Perhaps put this in a different file.
-    const char *cmd_line = (const char *) read_user_word(get_syscall_param_addr
-                                                          (f->esp, 0));
+    decl_parameter(const char *, cmd_line, f->esp, 0);
 
     // Do we want to lock across all of process_execute()?
     lock_filesys();
@@ -287,22 +281,20 @@ sys_exec(struct intr_frame *f) {
     // If program cannot be loaded, return -1
 
     // TODO: Should process_execute() be returning a PID now?
-    // TODO: Use return_value().
-    f->eax = id;
+    return_value(f, &id);
 }
 
 static void
 sys_wait(struct intr_frame *f) {
-    tid_t child = read_user_word(get_syscall_param_addr(f->esp, 0));
+    decl_parameter(tid_t, child, f->esp, 0);
     int exit_status = process_wait(child);
-    // Type pun to ensure bit pattern maintained in signed to unsigned cast.
-    f->eax = * (uint32_t *) &exit_status;
+    return_value(f, &exit_status);
 }
 
 static void
 sys_create(struct intr_frame *f) {
-    char *file_name = (char *) read_user_word(get_syscall_param_addr(f->esp, 0));
-    off_t initial_size = read_user_word(get_syscall_param_addr(f->esp, 1));
+    decl_parameter(char *, file_name, f->esp, 0)
+    decl_parameter(off_t, initial_size, f->esp, 1)
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
         NOT_REACHED();
@@ -324,7 +316,7 @@ static void sys_remove(struct intr_frame *f) {
 
 static void sys_open(struct intr_frame *f) {
 //    char * file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
-    decl_paramter(char *, file_name, f->esp, 0)
+    decl_parameter(char *, file_name, f->esp, 0)
 
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
