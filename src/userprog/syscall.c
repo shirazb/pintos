@@ -41,7 +41,7 @@ static void exit_process(int status);
 static int get_user(const uint8_t *uaddr);
 static int read_user_word(uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
-static uint8_t *get_syscall_param_addr(void *esp, int index);
+static inline uint8_t *get_syscall_param_addr(void *esp, int index);
 static inline void fail_if_invalid_user_addr(const void *addr);
 static inline void return_value(struct intr_frame *f, void *val);
 
@@ -224,7 +224,7 @@ fail_if_invalid_user_addr(const void *addr) {
 /*
  * Validates stack pointer then gets a parameter from the stack.
  */
-static uint8_t *
+static inline uint8_t *
 get_syscall_param_addr(void *esp, int index) {
     // Remove syscall number + index of argument
     // Note, all syscall parameters in Pintos are 32 bits.
