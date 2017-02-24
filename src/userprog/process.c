@@ -281,6 +281,8 @@ start_process(void *start_proc_info) {
         process_exit();
     }
 
+//    Make file read only
+    file_deny_write(filesys_open(file_name));
 
     //Setting up the stack for user programs
 
@@ -478,7 +480,8 @@ process_exit(void) {
 
     struct process *proc_curr = process_current();
 
-    lock_acquire(&proc_curr->process_lock);
+//    lock_acquire(&proc_curr->process_lock);
+    enum intr_level oldlevel = intr_disable ();
 
     struct thread *child_thread = NULL;
     for(struct list_elem *e = list_begin(&proc_curr->children);
@@ -495,10 +498,12 @@ process_exit(void) {
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
-        lock_release(&proc_curr->process_lock);
+//        lock_release(&proc_curr->process_lock);
+        intr_set_level(oldlevel);
         process_destroy(proc_curr);
     } else {
-        lock_release(&proc_curr->process_lock);
+        intr_set_level(oldlevel);
+//        lock_release(&proc_curr->process_lock);
     }
 
     thread_exit();
@@ -538,9 +543,9 @@ static void
 notify_child_of_exit(struct process *p) {
     ASSERT(p != NULL);
 
-    lock_acquire(&p->process_lock);
+    enum intr_level oldlevel = intr_disable();
     p->parent_is_alive = false;
-    lock_release(&p->process_lock);
+    intr_set_level(oldlevel);
 }
 
 /* We load ELF binaries.  The following definitions are taken
