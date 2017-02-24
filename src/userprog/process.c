@@ -110,8 +110,10 @@ init_process(struct process *p, struct process *parent, char *file_name) {
     sema_init(&p->wait_till_death, 0);
     p->parent_is_alive = true;
     list_init(&p->children);
-    p->file_name = file_name;
+    p->executable = file_name;
     p->next_fd = LOWEST_FILE_FD;
+    p->loaded_correctly = false;
+    sema_init(&p->has_loaded, 0);
 
     // If there is no parent, this is the kernel test thread.
     if (parent == NULL) {
@@ -119,6 +121,7 @@ init_process(struct process *p, struct process *parent, char *file_name) {
     } else {
         // TODO: Synch access to parent process struct
         // Makes current process a child of the parent
+        // TODO: Add p to list, not current
         list_push_front(&parent->children, &thread_current()->child_proc_elem);
 
         p->pid = allocate_pid();
@@ -269,16 +272,20 @@ start_process(void *start_proc_info) {
     // Couldn't malloc process struct, give up.
     if (p == NULL) {
         thread_exit();
+        NOT_REACHED();
     }
 
     init_process(p, parent, file_name);
     thread_current()->process = p;
 
-    //Leave thread if loading of executable fails
-    success = load(file_name, &if_.eip, &if_.esp);
-    if (!success) {
+    // Leave thread if loading of executable fails
+    p->loaded_correctly = load(file_name, &if_.eip, &if_.esp);
+    sema_up(&p->has_loaded);
+
+    if (!p->loaded_correctly) {
         palloc_free_page(file_name);
         process_exit();
+        NOT_REACHED();
     }
 
 
@@ -396,10 +403,10 @@ process_wait(tid_t child_tid) {
     lock_acquire(&p->process_lock);
 
     struct thread *child_thread = NULL;
-    struct thread *curr = NULL;
-    for(struct list_elem *e = list_begin(&p->children);
-        e != list_end(&p->children);
-        e = list_next(e))
+    struct thread *curr;
+    for (struct list_elem *e = list_begin(&p->children);
+         e != list_end(&p->children);
+         e = list_next(e))
     {
         curr = list_entry(e, struct thread, child_proc_elem);
         if (curr->tid == child_tid) {
@@ -415,10 +422,8 @@ process_wait(tid_t child_tid) {
         return EXIT_FAILURE;
     }
 
-    struct process *child_proc = child_thread->process;
-
     // If child already waited on or was killed by kernel, fail.
-
+    struct process *child_proc = child_thread->process;
     if (child_proc == NULL) {
         return EXIT_FAILURE;
     }
@@ -478,19 +483,20 @@ process_exit(void) {
 
     struct process *proc_curr = process_current();
 
+    // TODO: Acquire lock only if not already held?
     lock_acquire(&proc_curr->process_lock);
 
     struct thread *child_thread = NULL;
-    for(struct list_elem *e = list_begin(&proc_curr->children);
-        e != list_end(&proc_curr->children);
-        e = list_next(e))
+    for (struct list_elem *e = list_begin(&proc_curr->children);
+         e != list_end(&proc_curr->children);
+         e = list_next(e))
     {
         child_thread = list_entry(e, struct thread, child_proc_elem);
         notify_child_of_exit(child_thread->process);
 
     }
 
-    printf("%s: exit(%i)\n", proc_curr->file_name, proc_curr->exit_status);
+    printf("%s: exit(%i)\n", proc_curr->executable, proc_curr->exit_status);
 
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);

@@ -278,15 +278,35 @@ sys_exec(struct intr_frame *f) {
     decl_parameter(const char *, cmd_line, f->esp, 0);
 
     // Do we want to lock across all of process_execute()?
-    lock_filesys();
-    tid_t id = process_execute(cmd_line);
-    release_filesys();
+    tid_t child_tid = process_execute(cmd_line);
 
-    // TODO: Wait till we know executable has been successfully loaded.
-    // If program cannot be loaded, return -1
+    // If process_execute failed, fail.
+    if (child_tid == TID_ERROR) {
+        exit_process(EXIT_FAILURE);
+        NOT_REACHED();
+    }
 
-    // TODO: Should process_execute() be returning a PID now?
-    return_value(f, &id);
+
+    // Get the child process struct.
+    struct list_elem *e;
+    struct list *children = &process_current()->children;
+    struct thread *t;
+    struct process *child = NULL;
+    for (e = list_begin(children); e != list_end(children); e = list_next(e)) {
+        t = list_entry(e, struct thread, child_proc_elem);
+        if (t->tid == child_tid) {
+            child = t->process;
+            break;
+        }
+    }
+    ASSERT(child != NULL);
+
+
+    // Wait for program to be loaded. If loaded correctly, return -1.
+    sema_down(&child->has_loaded);
+    int result = child->loaded_correctly ? child_tid : TID_ERROR;
+
+    return_value(f, &result);
 }
 
 static void
