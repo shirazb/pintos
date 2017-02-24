@@ -361,7 +361,6 @@ parse_args(char *file_name, char **argv) {
 int
 process_wait(tid_t child_tid) {
     struct process *p = process_current();
-
     struct process *child_proc = process_lookup(child_tid, p);
 
     // If child not found or already waited on or was killed by kernel, fail.
@@ -371,18 +370,17 @@ process_wait(tid_t child_tid) {
 
     // Wait for child process to finish then get its exit status.
     sema_down(&child_proc->wait_till_death);
+    int exit_status = child_proc->exit_status;
 
-    lock_acquire(&child_proc->process_lock);
-    if (child_proc->exit_status == EXIT_FAILURE) {
+    if (exit_status == EXIT_FAILURE) {
         lock_release(&child_proc->process_lock);
         return EXIT_FAILURE;
     }
-    lock_release(&child_proc->process_lock);
 
     // Free the child proc, it is no longer needed.
     destroy_process(child_proc);
 
-    return child_proc->exit_status;
+    return exit_status;
 }
 
 /*
