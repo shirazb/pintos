@@ -110,8 +110,8 @@ init_process(struct process *p, struct process *parent, char *file_name) {
     sema_init(&p->wait_till_death, 0);
     p->parent_is_alive = true;
     list_init(&p->children);
-//    p->file_name = malloc(strlen(file_name));
     p->file_name = file_name;
+    p->next_fd = LOWEST_FILE_FD;
 
     // If there is no parent, this is the kernel test thread.
     if (parent == NULL) {
@@ -444,6 +444,7 @@ process_wait(tid_t child_tid) {
 /*
  * Destroys a process struct -- frees its members on the heap then frees itself.
  */
+// TODO: Free open file memory in the hash map.
 void
 process_destroy(struct process *p) {
     ASSERT(p != NULL);
@@ -882,18 +883,31 @@ install_page(void *upage, void *kpage, bool writable) {
  * Hash function for open files.
  */
 static unsigned
-open_file_hash(const struct hash_elem *a UNUSED, void *aux UNUSED) {
-    puts("ERROR: open_file_hash() not implemented");
-    ASSERT(false);
+open_file_hash(const struct hash_elem *a, void *aux UNUSED) {
+    struct open_file_s *open_file_s = hash_entry(
+            a,
+            struct open_file_s,
+            fd_elem
+    );
+    return (unsigned int) open_file_s->fd;
 }
 
 /*
  * Less function for open files.
  */
 static bool
-open_file_less(const struct hash_elem *a UNUSED, const struct hash_elem *b
-               UNUSED,
+open_file_less(const struct hash_elem *a, const struct hash_elem *b,
                void *aux UNUSED) {
-    puts("ERROR: open_file_less() not implemented");
-    ASSERT(false);
+    struct open_file_s *open_file_a = hash_entry(
+            a,
+            struct open_file_s,
+            fd_elem
+    );
+    struct open_file_s *open_file_b = hash_entry(
+            b,
+            struct open_file_s,
+            fd_elem
+    );
+
+    return open_file_a->fd < open_file_b->fd;
 }

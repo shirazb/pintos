@@ -333,18 +333,18 @@ static void sys_open(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
 
     if (file_name == NULL) {
-        ASSERT (false);
         exit_process(EXIT_FAILURE);
         NOT_REACHED();
     }
 
     lock_filesys();
     struct file *file = filesys_open(file_name);
+    release_filesys();
 
     int fd = -1;
 
     if (file != NULL) {
-        ASSERT (process_current()->next_fd >= 2);
+        ASSERT(process_current()->next_fd >= LOWEST_FILE_FD);
 
         // Reserve space for the open_file_s entry to put in the hash entry in process struct
         struct open_file_s *open_file_s = malloc(sizeof(struct open_file_s));
@@ -362,7 +362,6 @@ static void sys_open(struct intr_frame *f) {
         hash_insert(&process_current()->open_files, &open_file_s->fd_elem);
     }
 
-    release_filesys();
     return_value(f, &fd);
 }
 
