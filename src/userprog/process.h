@@ -11,7 +11,7 @@
 typedef int pid_t;
 
 struct open_file {
-    int fd;                      /* The file descriptor */
+    unsigned int fd;                      /* The file descriptor */
     struct file *open_file;      /* Contents of loaded file */
     struct hash_elem fd_elem;    /* To put fds in a hash table */
 };
