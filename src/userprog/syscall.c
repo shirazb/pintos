@@ -240,6 +240,7 @@ get_syscall_param_addr(void *esp, int index) {
 /*
  * Exits a process -- sets its exit status and then exits the thread
  */
+// TODO: Should exit codes be uint8_t?
 static void
 exit_process(int status) {
     struct thread *curr = thread_current();
@@ -409,6 +410,7 @@ static void sys_read(struct intr_frame *f) {
 
         if (open_file_s == NULL) {
             exit_process(EXIT_FAILURE);
+            NOT_REACHED();
         }
 
         struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
