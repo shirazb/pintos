@@ -388,21 +388,43 @@ static void sys_read(struct intr_frame *f) {
     decl_parameter(void *, buffer, f->esp, 1);
     decl_parameter(unsigned, size, f->esp, 2);
 
-    bool fileCanBeRead = true;
+    bool file_can_be_read = true;
 
     if (fd == 0) {
-        uint8_t length = input_getc();
+        lock_filesys();
+        uint8_t *buff = (uint8_t *) buffer;
+        for (int i = 0 ; i < size; i++) {
+            buff[i] = input_getc();
+        }
+        release_filesys();
+
+        return_value(f, buff);
+    } else if (fd == -1) {
+        return_value(f, EXIT_FAILURE);
     } else {
-        struct open_file_s *open_file_s = process_get_open_file_struct(fd);
+        struct open_file_s *open_file_s = process_get_open_file_struct((unsigned int) fd);
+
+        if (open_file_s == NULL) {
+            exit_process(EXIT_FAILURE);
+        }
+
         struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
 
 //    fd needs to exist and be valid
         if (fd_elem == NULL) {
-            fileCanBeRead = false;
+            file_can_be_read = false;
         }
+
+        uint8_t *buff = (uint8_t *) buffer;
+
+        lock_filesys();
+        int read_file = file_read(open_file_s->open_file, buff, size);
+        release_filesys();
+
+        int result = (file_can_be_read) ? read_file : EXIT_FAILURE;
+        return_value(f, &result);
     }
 
-//    return (/*if file can be read*/) ? input_getc() : -1;
 }
 
 /*
