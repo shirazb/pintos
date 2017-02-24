@@ -42,8 +42,8 @@ static int get_user(const uint8_t *uaddr);
 static int read_user_word(uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
 static uint8_t *get_syscall_param_addr(void *esp, int index);
-static void fail_if_invalid_user_addr(const void *addr);
-static void return_value(struct intr_frame *f, void *val);
+static inline void fail_if_invalid_user_addr(const void *addr);
+static inline void return_value(struct intr_frame *f, void *val);
 
 /* Table of syscalls */
 typedef void (syscall_f)(struct intr_frame *);
@@ -86,7 +86,7 @@ syscall_init(void) {
  * return, so that a type pun is performed. This ensures the bit pattern of
  * *val is preserved.
  */
-static void
+static inline void
 return_value(struct intr_frame *f, void *val) {
     f->eax = * (uint32_t *) val;
 }
@@ -214,7 +214,7 @@ put_user(uint8_t *udst, uint8_t byte) {
 /*
  * Calls thread exit if addr is null or not in user space
  */
-static void
+static inline void
 fail_if_invalid_user_addr(const void *addr) {
     if (addr == NULL || !is_user_vaddr(addr)) {
         exit_process(EXIT_FAILURE);
@@ -308,14 +308,16 @@ sys_create(struct intr_frame *f) {
 }
 
 static void sys_remove(struct intr_frame *f) {
-    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 0));
+    decl_parameter(char *, file_name, f->esp, 0)
+
     lock_filesys();
-    f->eax = filesys_remove((char *) arg);
+    bool success = filesys_remove(file_name);
     release_filesys();
+
+    return_value(f, &success);
 }
 
 static void sys_open(struct intr_frame *f) {
-//    char * file_name = read_user_word(get_syscall_param_addr(f->esp, 0));
     decl_parameter(char *, file_name, f->esp, 0)
 
     if (file_name == NULL) {
@@ -324,18 +326,23 @@ static void sys_open(struct intr_frame *f) {
     }
 
     lock_filesys();
-    struct file * file = filesys_open(file_name);
+    struct file *file = filesys_open(file_name);
     release_filesys();
+
+    // TODO: Add this file to process' open files
+    // TODO: Return fd
 }
 
 // FIXME: Is this the right file?
 static void sys_filesize(struct intr_frame *f) {
-    tid_t arg = read_user_word(get_syscall_param_addr(f->esp, 0));
+    decl_parameter(char *, file_name, f->esp, 0)
+
     lock_filesys();
-    struct file *file = filesys_open((char *) arg);
+    struct file *file = filesys_open(file_name);
     release_filesys();
-    f->eax = file_length(file);
-//    printf("ERROR SYSCALL NOT IMPLEMENTED: filesize()");
+
+    off_t length = file_length(file);
+    return_value(f, &length);
 }
 
 /*int read (int fd, void *buffer, unsigned size)
@@ -344,11 +351,11 @@ read (0 at end of file), or -1 if the file could not be read (due to a condition
 end of file). Fd 0 reads from the keyboard using input_getc(), which can be found in
 ‘src/devices/input.h’.*/
 static void sys_read(struct intr_frame *f) {
-    tid_t fd = read_user_word(get_syscall_param_addr(f->esp, 0));
-    tid_t buffer = read_user_word(get_syscall_param_addr(f->esp, 1));
-    tid_t size = read_user_word(get_syscall_param_addr(f->esp, 2));
+    decl_parameter(int, fd, f->esp, 0)
+    decl_parameter(void *, buffer, f->esp, 1)
+    decl_parameter(unsigned, size, f->esp, 2)
 
-//    f->eax = (/*if file can be read*/) ? input_getc() : -1;
+    // return (/*if file can be read*/) ? input_getc() : -1;
 }
 
 /*
@@ -361,12 +368,10 @@ static void
 sys_write(struct intr_frame *f) {
     ASSERT(f != NULL);
 
-//    hex_dump(0, f->esp, 16, false);
+    decl_parameter(int, fd, f->esp, 0)
+    decl_parameter(char *, buffer, f->esp, 1)
+    decl_parameter(unsigned, size, f->esp, 2)
 
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
-    char *buffer = (char *) read_user_word(get_syscall_param_addr(f->esp, 1));
-    unsigned size = (unsigned int) read_user_word(
-            get_syscall_param_addr(f->esp, 2));
     unsigned bytes_written = 0;
 
     // Write to console.
@@ -394,42 +399,36 @@ sys_write(struct intr_frame *f) {
 /* void seek (int fd, unsigned position) */
 static void
 sys_seek(struct intr_frame *f) {
-//    get arguments
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
-    unsigned position = (unsigned) read_user_word(
-            get_syscall_param_addr(f->esp, 1));
+    decl_parameter(int, fd, f->esp, 0)
+    decl_parameter(unsigned, position, f->esp, 0);
 
     lock_filesys();
-//    get file descriptor
-//    if descriptor not null use file_seek(file, position)
+
+    // If descriptor not null use file_seek(file, position)
     struct open_file *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
         file_seek (open_file->open_file, position);
     }
-//
+
     release_filesys();
-//    printf("ERROR SYSCALL NOT IMPLEMENTED: seek()");
 }
 /*unsigned tell (int fd)
 Returns the position of the next byte to be read or written in open file fd, expressed in bytes
 from the beginning of the file.*/
 static void sys_tell(struct intr_frame *f) {
-    // get argument
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
-
-    lock_filesys();
+    decl_parameter(int, fd, f->esp, 0)
 
     unsigned position = 0;
 
-    // get file descriptor
     struct open_file *open_file = process_get_open_file_struct (fd);
-    if (open_file != NULL)
-        position = (unsigned)file_tell (open_file->open_file);
-
-    release_filesys();
+    if (open_file != NULL) {
+        lock_filesys();
+        position = (unsigned) file_tell (open_file->open_file);
+        release_filesys();
+    }
 
     /* Return the result by setting the eax value in the interrupt frame. */
-    f->eax = position;
+    return_value(f, &position);
 }
 
 /*
@@ -437,8 +436,7 @@ static void sys_tell(struct intr_frame *f) {
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file
 descriptors, as if by calling this function for each one.*/
 static void sys_close(struct intr_frame *f) {
-//   get argument
-    int fd = read_user_word(get_syscall_param_addr(f->esp, 0));
+    decl_parameter(int, fd, f->esp, 0)
 
     struct open_file *open_file = process_get_open_file_struct (fd);
 //    close_syscall(open_file, true);
