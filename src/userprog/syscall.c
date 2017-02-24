@@ -240,6 +240,7 @@ get_syscall_param_addr(void *esp, int index) {
 /*
  * Exits a process -- sets its exit status and then exits the thread
  */
+// TODO: Should exit codes be uint8_t?
 static void
 exit_process(int status) {
     struct thread *curr = thread_current();
@@ -298,14 +299,14 @@ sys_wait(struct intr_frame *f) {
 static void
 sys_create(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
-    decl_parameter(off_t, initial_size, f->esp, 1);
+    decl_parameter(unsigned int, initial_size, f->esp, 1);
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
         NOT_REACHED();
     }
 
     lock_filesys();
-    bool success = filesys_create(file_name, initial_size);
+    bool success = filesys_create(file_name, (off_t) initial_size);
     release_filesys();
 
     return_value(f, &success);
