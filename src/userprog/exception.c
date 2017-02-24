@@ -149,7 +149,7 @@ page_fault(struct intr_frame *f) {
     user = (f->error_code & PF_U) != 0;
 
     if (!user) {
-        //eax to 0xffffffff and copies the old value into eip.
+        // Set eax to 0xffffffff and copies the old value into eip.
         f->eip = (void (*)(void)) f->eax;
         f->eax = 0xffffffff;
         kill_process();

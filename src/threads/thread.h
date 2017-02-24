@@ -100,7 +100,6 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
     struct process *process;
-    struct list_elem child_proc_elem;
 //#endif
 
     struct sleep_desc *sleep_desc;      /* Used by timer.c to sleep threads. */

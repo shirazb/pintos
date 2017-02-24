@@ -119,7 +119,6 @@ main(void) {
     input_init();
 #ifdef USERPROG
     exception_init ();
-    process_init_system ();
     syscall_init ();
 #endif
 

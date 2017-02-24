@@ -134,7 +134,6 @@ init_syscalls_table(void) {
 static void
 syscall_handler(struct intr_frame *f) {
     ASSERT(f != NULL);
-
     int syscall_num = get_syscall_number(f);
 
     // Perform system call
@@ -286,21 +285,9 @@ sys_exec(struct intr_frame *f) {
         NOT_REACHED();
     }
 
-
     // Get the child process struct.
-    struct list_elem *e;
-    struct list *children = &process_current()->children;
-    struct thread *t;
-    struct process *child = NULL;
-    for (e = list_begin(children); e != list_end(children); e = list_next(e)) {
-        t = list_entry(e, struct thread, child_proc_elem);
-        if (t->tid == child_tid) {
-            child = t->process;
-            break;
-        }
-    }
+    struct process *child = process_lookup(child_tid, process_current());
     ASSERT(child != NULL);
-
 
     // Wait for program to be loaded. If loaded correctly, return -1.
     sema_down(&child->has_loaded);

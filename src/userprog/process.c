@@ -30,8 +30,9 @@ static thread_func start_process NO_RETURN;
 
 static int parse_args(char *file_name, char **argv);
 
-static void init_process(struct process *p, struct process *parent,
+static void init_process(struct process *parent,
                          char *file_name);
+static void destroy_process(struct process *p);
 
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
@@ -40,25 +41,11 @@ static hash_less_func open_file_less;
 
 static void notify_child_of_exit(struct process *p);
 
-static pid_t allocate_pid(void);
-
-static pid_t next_pid;
-static struct lock next_pid_lock;
-
 static struct start_proc_info {
     char *fn_copy;
     struct process *parent;
     struct semaphore child_has_read_info;
 };
-
-/*
- * Initialise the process system.
- */
-void
-process_init_system(void) {
-    next_pid = 0;
-    lock_init(&next_pid_lock);
-}
 
 /*
  * User program threads have the "main" kernel thread execute and wait on the
@@ -69,16 +56,7 @@ void
 setup_test_process(void) {
     struct thread *cur = thread_current();
     ASSERT(strcmp(cur->name, TEST_PROC_NAME) == 0);
-
-    struct process *p = malloc(sizeof(struct process));
-    if (p == NULL) {
-        printf("FATAL ERROR: Could not malloc \'struct process\' of test "
-                       "thread.\n");
-        ASSERT(false);
-    }
-
-    init_process(p, NULL, "main");
-    cur->process = p;
+    init_process(NULL, "main");
 }
 
 /*
@@ -88,23 +66,30 @@ void
 tear_down_test_process(void) {
     ASSERT(strcmp(thread_current()->name, TEST_PROC_NAME) == 0);
 
-    struct process *cur = process_current();
-    process_destroy(cur);
+    destroy_process(process_current());
 }
 
 /*
  * Initialises the process struct of a thread.
  */
 static void
-init_process(struct process *p, struct process *parent, char *file_name) {
-    ASSERT(p != NULL);
+init_process(struct process *parent, char *file_name) {
+
+    ASSERT (file_name != NULL);
+
+    struct process *p = malloc (sizeof (struct process));
+
+    if (p == NULL) {
+        thread_exit();
+        NOT_REACHED();
+    }
 
     enum intr_level old_level = intr_disable();
 
-    lock_init(&p->process_lock);
-    lock_acquire(&p->process_lock);
 
     // Init the process struct.
+    lock_init(&p->process_lock);
+
     p->exit_status = EXIT_FAILURE;
     hash_init(&p->open_files, open_file_hash, open_file_less, NULL);
     sema_init(&p->wait_till_death, 0);
@@ -117,17 +102,15 @@ init_process(struct process *p, struct process *parent, char *file_name) {
 
     // If there is no parent, this is the kernel test thread.
     if (parent == NULL) {
+        ASSERT(strcmp(thread_current()->name, TEST_PROC_NAME) == 0);
         p->pid = TEST_PROC_PID;
     } else {
-        // TODO: Synch access to parent process struct
         // Makes current process a child of the parent
-        // TODO: Add p to list, not current
-        list_push_front(&parent->children, &thread_current()->child_proc_elem);
-
-        p->pid = allocate_pid();
+        list_push_front(&parent->children, &p->child_proc_elem);
+        p->pid = thread_current()->tid;
     };
 
-    lock_release(&p->process_lock);
+    thread_current()->process = p;
 
     intr_set_level(old_level);
 }
@@ -170,17 +153,6 @@ process_execute(const char *file_name) {
 }
 
 /*
- * Synchronously allocates the next pid.
- */
-static pid_t
-allocate_pid(void) {
-    lock_acquire(&next_pid_lock);
-    pid_t pid = next_pid++;
-    lock_release(&next_pid_lock);
-    return pid;
-}
-
-/*
  * Returns the file from the file descriptor that the process has opened.
  * Returns NULL if process does not have the given fd.
  */
@@ -189,7 +161,6 @@ process_get_open_file(int fd) {
     // Get the open file
     struct open_file_s search_fd;
     search_fd.fd = fd;
-
 
     struct thread *curr = thread_current();
 
@@ -251,7 +222,6 @@ start_process(void *start_proc_info) {
     /* Start setting up the stack. */
 
     struct intr_frame if_;
-    bool success;
 
     /* Initialize interrupt frame and load executable. */
     memset(&if_, 0, sizeof if_);
@@ -267,22 +237,14 @@ start_process(void *start_proc_info) {
     file_name = argv[0];
 
     // Malloc and initialise the process struct.
-    struct process *p = malloc(sizeof(struct process));
-
-    // Couldn't malloc process struct, give up.
-    if (p == NULL) {
-        thread_exit();
-        NOT_REACHED();
-    }
-
-    init_process(p, parent, file_name);
-    thread_current()->process = p;
+    init_process(parent, file_name);
+    struct process *curr_proc = process_current();
 
     // Leave thread if loading of executable fails
-    p->loaded_correctly = load(file_name, &if_.eip, &if_.esp);
-    sema_up(&p->has_loaded);
+    curr_proc->loaded_correctly = load(file_name, &if_.eip, &if_.esp);
+    sema_up(&curr_proc->has_loaded);
 
-    if (!p->loaded_correctly) {
+    if (!curr_proc->loaded_correctly) {
         palloc_free_page(file_name);
         process_exit();
         NOT_REACHED();
@@ -400,30 +362,9 @@ int
 process_wait(tid_t child_tid) {
     struct process *p = process_current();
 
-    lock_acquire(&p->process_lock);
+    struct process *child_proc = process_lookup(child_tid, p);
 
-    struct thread *child_thread = NULL;
-    struct thread *curr;
-    for (struct list_elem *e = list_begin(&p->children);
-         e != list_end(&p->children);
-         e = list_next(e))
-    {
-        curr = list_entry(e, struct thread, child_proc_elem);
-        if (curr->tid == child_tid) {
-            child_thread = curr;
-            break;
-        }
-    }
-
-    lock_release(&p->process_lock);
-
-    // If tid given is not of a child thread, fail.
-    if (child_thread == NULL) {
-        return EXIT_FAILURE;
-    }
-
-    // If child already waited on or was killed by kernel, fail.
-    struct process *child_proc = child_thread->process;
+    // If child not found or already waited on or was killed by kernel, fail.
     if (child_proc == NULL) {
         return EXIT_FAILURE;
     }
@@ -438,25 +379,29 @@ process_wait(tid_t child_tid) {
     }
     lock_release(&child_proc->process_lock);
 
-    int exit_status = child_proc->exit_status;
-
     // Free the child proc, it is no longer needed.
-    process_destroy(child_proc);
+    destroy_process(child_proc);
 
-    return exit_status;
+    return child_proc->exit_status;
 }
 
 /*
  * Destroys a process struct -- frees its members on the heap then frees itself.
  */
 // TODO: Free open file memory in the hash map.
-void
-process_destroy(struct process *p) {
+static void
+destroy_process(struct process *p) {
     ASSERT(p != NULL);
-    lock_acquire(&p->process_lock);
+    enum intr_level old_level = intr_disable();
+
     hash_destroy(&p->open_files, NULL);
-    lock_release(&p->process_lock);
+    if (p->pid != TEST_PROC_PID) {
+        list_remove(&p->child_proc_elem);
+    }
+
     free(p);
+
+    intr_set_level(old_level);
 }
 
 /* Free the current process's resources. */
@@ -483,29 +428,27 @@ process_exit(void) {
 
     struct process *proc_curr = process_current();
 
-    // TODO: Acquire lock only if not already held?
-    lock_acquire(&proc_curr->process_lock);
+    enum intr_level old_level = intr_disable();
 
-    struct thread *child_thread = NULL;
+    struct process *child_proc = NULL;
     for (struct list_elem *e = list_begin(&proc_curr->children);
          e != list_end(&proc_curr->children);
          e = list_next(e))
     {
-        child_thread = list_entry(e, struct thread, child_proc_elem);
-        notify_child_of_exit(child_thread->process);
-
+        child_proc = list_entry(e, struct process, child_proc_elem);
+        notify_child_of_exit(child_proc);
     }
 
+    // Print exiting message
     printf("%s: exit(%i)\n", proc_curr->executable, proc_curr->exit_status);
 
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
-        lock_release(&proc_curr->process_lock);
-        process_destroy(proc_curr);
-    } else {
-        lock_release(&proc_curr->process_lock);
+        destroy_process(proc_curr);
     }
+
+    intr_set_level(old_level);
 
     thread_exit();
     NOT_REACHED();
@@ -538,15 +481,40 @@ process_activate(void) {
 }
 
 /*
- * Tells the child that its parent is dead.
+ * Tells the child that its parent is dead. Intended only to be called by
+ * process_exit().
  */
 static void
 notify_child_of_exit(struct process *p) {
     ASSERT(p != NULL);
+    ASSERT(intr_get_level() == INTR_OFF);
 
-    lock_acquire(&p->process_lock);
     p->parent_is_alive = false;
-    lock_release(&p->process_lock);
+}
+
+/*
+ * Looks up a process from the parent's list of children by PID.
+ */
+struct process *
+process_lookup(pid_t pid, struct process *parent) {
+    lock_acquire(&parent->process_lock);
+
+    struct process *child_proc = NULL;
+    struct process *curr;
+    for (struct list_elem *e = list_begin(&parent->children);
+         e != list_end(&parent->children);
+         e = list_next(e))
+    {
+        curr = list_entry(e, struct process, child_proc_elem);
+        if (curr->pid == pid) {
+            child_proc = curr;
+            break;
+        }
+    }
+
+    lock_release(&parent->process_lock);
+
+    return child_proc;
 }
 
 /* We load ELF binaries.  The following definitions are taken
