@@ -26,7 +26,7 @@
  * Note that this macro is a statement. Do not use it in an expression.
  */
 #define decl_parameter(TYPE, PARAM, ESP, INDEX) int __word_##PARAM = read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
-TYPE PARAM = * (TYPE *) &__word_##PARAM;
+TYPE PARAM = * (TYPE *) &__word_##PARAM
 
 /* System call handler */
 static void syscall_handler(struct intr_frame *);
@@ -193,6 +193,7 @@ read_user_word(uint8_t *uaddr) {
         temp = get_user(byte_addr);
         if (temp == -1) {
             exit_process(EXIT_FAILURE);
+            NOT_REACHED();
         }
 
         temp <<= i * BYTE_SIZE;
@@ -220,6 +221,7 @@ static inline void
 fail_if_invalid_user_addr(const void *addr) {
     if (addr == NULL || !is_user_vaddr(addr)) {
         exit_process(EXIT_FAILURE);
+        NOT_REACHED();
     }
 }
 
@@ -295,8 +297,8 @@ sys_wait(struct intr_frame *f) {
 
 static void
 sys_create(struct intr_frame *f) {
-    decl_parameter(char *, file_name, f->esp, 0)
-    decl_parameter(off_t, initial_size, f->esp, 1)
+    decl_parameter(char *, file_name, f->esp, 0);
+    decl_parameter(off_t, initial_size, f->esp, 1);
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
         NOT_REACHED();
@@ -310,7 +312,7 @@ sys_create(struct intr_frame *f) {
 }
 
 static void sys_remove(struct intr_frame *f) {
-    decl_parameter(char *, file_name, f->esp, 0)
+    decl_parameter(char *, file_name, f->esp, 0);
 
     lock_filesys();
     bool success = filesys_remove(file_name);
@@ -321,14 +323,14 @@ static void sys_remove(struct intr_frame *f) {
 
 static int generate_fd (struct process *p) {
     lock_acquire(&p->process_lock);
-    int fd = p->unique_fd++;
+    int fd = p->next_fd++;
     lock_release(&p->process_lock);
 
     return fd;
 }
 
 static void sys_open(struct intr_frame *f) {
-    decl_parameter(char *, file_name, f->esp, 0)
+    decl_parameter(char *, file_name, f->esp, 0);
 
     if (file_name == NULL) {
         ASSERT (false);
@@ -342,7 +344,7 @@ static void sys_open(struct intr_frame *f) {
     int fd = -1;
 
     if (file != NULL) {
-        ASSERT (process_current()->unique_fd >= 2);
+        ASSERT (process_current()->next_fd >= 2);
 
         // Reserve space for the open_file_s entry to put in the hash entry in process struct
         struct open_file_s *open_file_s = malloc(sizeof(struct open_file_s));
@@ -366,7 +368,7 @@ static void sys_open(struct intr_frame *f) {
 
 // FIXME: Is this the right file?
 static void sys_filesize(struct intr_frame *f) {
-    decl_parameter(char *, file_name, f->esp, 0)
+    decl_parameter(char *, file_name, f->esp, 0);
 
     lock_filesys();
     struct file *file = filesys_open(file_name);
@@ -383,9 +385,9 @@ end of file). Fd 0 reads from the keyboard using input_getc(), which can be foun
 ‘src/devices/input.h’.*/
 // TODO: How can we check if file can be read?
 static void sys_read(struct intr_frame *f) {
-    decl_parameter(int, fd, f->esp, 0)
-    decl_parameter(void *, buffer, f->esp, 1)
-    decl_parameter(unsigned, size, f->esp, 2)
+    decl_parameter(int, fd, f->esp, 0);
+    decl_parameter(void *, buffer, f->esp, 1);
+    decl_parameter(unsigned, size, f->esp, 2);
 
     bool fileCanBeRead = true;
 
@@ -414,9 +416,9 @@ static void
 sys_write(struct intr_frame *f) {
     ASSERT(f != NULL);
 
-    decl_parameter(int, fd, f->esp, 0)
-    decl_parameter(char *, buffer, f->esp, 1)
-    decl_parameter(unsigned, size, f->esp, 2)
+    decl_parameter(int, fd, f->esp, 0);
+    decl_parameter(char *, buffer, f->esp, 1);
+    decl_parameter(unsigned, size, f->esp, 2);
 
     unsigned bytes_written = 0;
 
@@ -445,7 +447,7 @@ sys_write(struct intr_frame *f) {
 /* void seek (int fd, unsigned position) */
 static void
 sys_seek(struct intr_frame *f) {
-    decl_parameter(int, fd, f->esp, 0)
+    decl_parameter(int, fd, f->esp, 0);
     decl_parameter(unsigned, position, f->esp, 0);
 
     lock_filesys();
@@ -462,7 +464,7 @@ sys_seek(struct intr_frame *f) {
 Returns the position of the next byte to be read or written in open file fd, expressed in bytes
 from the beginning of the file.*/
 static void sys_tell(struct intr_frame *f) {
-    decl_parameter(int, fd, f->esp, 0)
+    decl_parameter(int, fd, f->esp, 0);
 
     unsigned position = 0;
 
@@ -506,7 +508,7 @@ close_syscall(struct open_file_s *file_descriptor,
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file
 descriptors, as if by calling this function for each one.*/
 static void sys_close(struct intr_frame *f) {
-    decl_parameter(int, fd, f->esp, 0)
+    decl_parameter(int, fd, f->esp, 0);
 
     struct open_file_s *open_file = process_get_open_file_struct (fd);
 
