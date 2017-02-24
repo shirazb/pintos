@@ -7,6 +7,7 @@
 #include <filesys/file.h>
 #include <devices/input.h>
 #include <threads/malloc.h>
+#include <lib/kernel/stdio.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
@@ -318,9 +319,9 @@ static void sys_remove(struct intr_frame *f) {
     return_value(f, &success);
 }
 
-static unsigned int generate_fd (struct process *p) {
+static int generate_fd (struct process *p) {
     lock_acquire(&p->process_lock);
-    unsigned int fd = p->unique_fd++;
+    int fd = p->unique_fd++;
     lock_release(&p->process_lock);
 
     return fd;
@@ -354,7 +355,7 @@ static void sys_open(struct intr_frame *f) {
 
         fd = generate_fd(process_current());
         open_file_s->open_file = file;
-        open_file_s->fd = (unsigned int) fd;
+        open_file_s->fd = fd;
 
         hash_insert(&process_current()->open_files, &open_file_s->fd_elem);
     }

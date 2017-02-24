@@ -182,7 +182,7 @@ allocate_pid(void) {
  * Returns NULL if process does not have the given fd.
  */
 struct file *
-process_get_open_file(unsigned int fd) {
+process_get_open_file(int fd) {
     // Get the open file
     struct open_file_s search_fd;
     search_fd.fd = fd;
@@ -207,7 +207,7 @@ process_get_open_file(unsigned int fd) {
 
 /*Get the open_file struct*/
 struct open_file_s *
-process_get_open_file_struct(unsigned int fd)
+process_get_open_file_struct(int fd)
 {
     // fd 0 and 1 are reserved for stout and stderr respectively.
     if (fd < 2)
