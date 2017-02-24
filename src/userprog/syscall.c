@@ -12,7 +12,18 @@
 
 #define BYTE_SIZE 8
 
-#define decl_paramter(TYPE, PARAM, ESP, INDEX) int __word_PARAM =read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
+/*
+ * Declares a variable called PARAM of type TYPE. Initialises it to parameter
+ * number INDEX taken from the stack frame pointed to by ESP.
+ *
+ * Intended for use only in system call handlers to retrieve their arguments
+ * from the given stack frame safely.
+ *
+ * Uses a type pun to ensure the bit pattern of the parameter is unchanged.
+ * Reserves the local variable "__word_PARAM".
+ * Note that this macro is a statement. Do not use it in an expression.
+ */
+#define decl_paramter(TYPE, PARAM, ESP, INDEX) int __word_PARAM = read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
 TYPE PARAM = * (TYPE *) &__word_PARAM;
 
 /* System call handler */
@@ -35,31 +46,31 @@ static void fail_if_invalid_user_addr(const void *addr);
 static void return_value(struct intr_frame *f, void *val);
 
 /* Table of syscalls */
-typedef void (*syscall_f)(struct intr_frame *f);
+typedef void (syscall_f)(struct intr_frame *);
 static inline void init_syscalls_table(void);
-static syscall_f syscall_table[NUM_SYSCALLS];
+static syscall_f * syscall_table[NUM_SYSCALLS];
 
 /* System calls */
-static void sys_inumber(struct intr_frame *f);
-static void sys_isdir(struct intr_frame *f);
-static void sys_readdir(struct intr_frame *f);
-static void sys_mkdir(struct intr_frame *f);
-static void sys_chdir(struct intr_frame *f);
-static void sys_munmap(struct intr_frame *f);
-static void sys_mmap(struct intr_frame *f);
-static void sys_close(struct intr_frame *f);
-static void sys_tell(struct intr_frame *f);
-static void sys_seek(struct intr_frame *f);
-static void sys_write(struct intr_frame *f);
-static void sys_read(struct intr_frame *f);
-static void sys_filesize(struct intr_frame *f);
-static void sys_open(struct intr_frame *f);
-static void sys_remove(struct intr_frame *f);
-static void sys_create(struct intr_frame *f);
-static void sys_wait(struct intr_frame *f);
-static void sys_exec(struct intr_frame *f);
-static void sys_exit(struct intr_frame *f);
-static void sys_halt(struct intr_frame *f);
+static syscall_f sys_inumber;
+static syscall_f sys_isdir;
+static syscall_f sys_readdir;
+static syscall_f sys_mkdir;
+static syscall_f sys_chdir;
+static syscall_f sys_munmap;
+static syscall_f sys_mmap;
+static syscall_f sys_close;
+static syscall_f sys_tell;
+static syscall_f sys_seek;
+static syscall_f sys_write;
+static syscall_f sys_read;
+static syscall_f sys_filesize;
+static syscall_f sys_open;
+static syscall_f sys_remove;
+static syscall_f sys_create;
+static syscall_f sys_wait;
+static syscall_f sys_exec;
+static syscall_f sys_exit;
+static syscall_f sys_halt;
 
 static struct lock filesys_lock;
 
@@ -68,6 +79,16 @@ syscall_init(void) {
     init_syscalls_table();
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
     lock_init(&filesys_lock);
+}
+
+/*
+ * Returns a value from the system call. Takes a pointer to the value to
+ * return, so that a type pun is performed. This ensures the bit pattern of
+ * *val is preserved.
+ */
+static void
+return_value(struct intr_frame *f, void *val) {
+    f->eax = * (uint32_t *) val;
 }
 
 static inline void
@@ -203,22 +224,13 @@ fail_if_invalid_user_addr(const void *addr) {
 /*
  * Validates stack pointer then gets a parameter from the stack.
  */
-// FIXME: Dont we need to validate the address of the parameter not esp?
 static uint8_t *
 get_syscall_param_addr(void *esp, int index) {
-    fail_if_invalid_user_addr(esp);
-
     // Remove syscall number + index of argument
     // Note, all syscall parameters in Pintos are 32 bits.
-    return (uint8_t *) ((uint32_t *) esp + 1 + index);
-}
-
-/*
- * Returns a value from the system call. Takes a pointer to the value to return.
- */
-static void
-return_value(struct intr_frame *f, void *val) {
-    f->eax = * (uint32_t *) val;
+    uint8_t *addr = (uint8_t *) ((uint32_t *) esp + 1 + index);
+    fail_if_invalid_user_addr(addr);
+    return addr;
 }
 
 /*
