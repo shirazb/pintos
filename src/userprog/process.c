@@ -89,7 +89,6 @@ init_process(struct process *parent, char *file_name) {
 
     // Init the process struct.
     lock_init(&p->process_lock);
-
     p->exit_status = EXIT_FAILURE;
     hash_init(&p->open_files, open_file_hash, open_file_less, NULL);
     sema_init(&p->wait_till_death, 0);
@@ -250,6 +249,8 @@ start_process(void *start_proc_info) {
         NOT_REACHED();
     }
 
+//    Make file read only
+    file_deny_write(filesys_open(file_name));
 
     //Setting up the stack for user programs
 
