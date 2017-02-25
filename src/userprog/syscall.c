@@ -276,7 +276,6 @@ static void
 sys_exec(struct intr_frame *f) {
     decl_parameter(const char *, cmd_line, f->esp, 0);
 
-    // Do we want to lock across all of process_execute()?
     tid_t child_tid = process_execute(cmd_line);
 
     // If process_execute failed, fail.
@@ -307,6 +306,7 @@ static void
 sys_create(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
     decl_parameter(unsigned int, initial_size, f->esp, 1);
+
     if (file_name == NULL) {
         exit_process(EXIT_FAILURE);
         NOT_REACHED();

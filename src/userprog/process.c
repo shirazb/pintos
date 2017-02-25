@@ -244,12 +244,13 @@ start_process(void *start_proc_info) {
     sema_up(&curr_proc->has_loaded);
 
     if (!curr_proc->loaded_correctly) {
-        palloc_free_page(file_name);
+        // FIXME: Free fn_copy page after printing exit message.
+        curr_proc->exit_status = EXIT_FAILURE;
         process_exit();
         NOT_REACHED();
     }
 
-//    Make file read only
+    // Make file read only
     file_deny_write(filesys_open(file_name));
 
     //Setting up the stack for user programs
