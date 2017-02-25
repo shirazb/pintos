@@ -2,6 +2,7 @@
 #include <debug.h>
 #include <stdio.h>
 #include <string.h>
+#include <threads/synch.h>
 #include "filesys/file.h"
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
@@ -10,13 +11,30 @@
 /* Partition that contains the file system. */
 struct block *fs_device;
 
+static struct lock filesys_lock;
+
+static inline void lock_filesys (void);
+static inline void release_filesys (void);
+
 static void do_format (void);
+
+static inline void
+lock_filesys (void) {
+  lock_acquire (&filesys_lock);
+}
+
+static inline void
+release_filesys (void) {
+  lock_release (&filesys_lock);
+}
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void
 filesys_init (bool format) 
 {
+  lock_init (&filesys_lock);
+
   fs_device = block_get_role (BLOCK_FILESYS);
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
@@ -45,6 +63,8 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
+  lock_filesys ();
+
   block_sector_t inode_sector = 0;
   struct dir *dir = dir_open_root ();
   bool success = (dir != NULL
@@ -54,6 +74,8 @@ filesys_create (const char *name, off_t initial_size)
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
+
+  release_filesys ();
 
   return success;
 }
@@ -66,14 +88,21 @@ filesys_create (const char *name, off_t initial_size)
 struct file *
 filesys_open (const char *name)
 {
+  lock_filesys ();
+
   struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
+
 
   if (dir != NULL)
     dir_lookup (dir, name, &inode);
   dir_close (dir);
 
-  return file_open (inode);
+  struct file *opened_file = file_open (inode);
+
+  release_filesys ();
+
+  return opened_file;
 }
 
 /* Deletes the file named NAME.
@@ -83,9 +112,13 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
+  lock_filesys ();
+
   struct dir *dir = dir_open_root ();
   bool success = dir != NULL && dir_remove (dir, name);
   dir_close (dir); 
+
+  release_filesys ();
 
   return success;
 }

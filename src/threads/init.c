@@ -139,6 +139,7 @@ main(void) {
     /* Run actions specified on kernel command line. */
     run_actions(argv);
 
+
     /* Finish up. */
     shutdown();
     thread_exit();

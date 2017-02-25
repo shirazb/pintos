@@ -94,10 +94,13 @@ init_process(struct process *parent, char *file_name) {
     sema_init(&p->wait_till_death, 0);
     p->parent_is_alive = true;
     list_init(&p->children);
-    p->executable = file_name;
+    p->executable_name = file_name;
     p->next_fd = LOWEST_FILE_FD;
     p->loaded_correctly = false;
     sema_init(&p->has_loaded, 0);
+
+    // Will be set in load.
+    p->executable = NULL;
 
     // If there is no parent, this is the kernel test thread.
     if (parent == NULL) {
@@ -439,13 +442,16 @@ process_exit(void) {
     }
 
     // Print exiting message
-    printf("%s: exit(%i)\n", proc_curr->executable, proc_curr->exit_status);
+    printf("%s: exit(%i)\n", proc_curr->executable_name, proc_curr->exit_status);
 
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
         destroy_process(proc_curr);
     }
+
+    // Close the executable file only now that execution finished.
+    file_close(proc_curr->executable);
 
     intr_set_level(old_level);
 
@@ -697,7 +703,15 @@ load(const char *file_name, void (**eip)(void), void **esp) {
 
     done:
     /* We arrive here whether the load is successful or not. */
-    file_close(file);
+
+    // If the file was loaded correctly, it must only be closed once the
+    // execution of it has finished.
+    if (success) {
+        process_current()->executable = file;
+    } else {
+        file_close(file);
+    }
+
     return success;
 }
 

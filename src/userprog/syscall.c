@@ -32,10 +32,6 @@ TYPE PARAM = * (TYPE *) &__word_##PARAM
 static void syscall_handler(struct intr_frame *);
 static int get_syscall_number(struct intr_frame *);
 
-/* File system synchronisation */
-static inline void lock_filesys(void);
-static inline void release_filesys(void);
-
 /* Exits a process - sets its exit status and then exits the thread */
 static void exit_process(int status);
 
@@ -74,13 +70,10 @@ static syscall_f sys_exec;
 static syscall_f sys_exit;
 static syscall_f sys_halt;
 
-static struct lock filesys_lock;
-
 void
 syscall_init(void) {
     init_syscalls_table();
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
-    lock_init(&filesys_lock);
 }
 
 /*
@@ -91,16 +84,6 @@ syscall_init(void) {
 static inline void
 return_value(struct intr_frame *f, void *val) {
     f->eax = * (uint32_t *) val;
-}
-
-static inline void
-lock_filesys(void) {
-    lock_acquire(&filesys_lock);
-}
-
-static inline void
-release_filesys(void) {
-    lock_release(&filesys_lock);
 }
 
 static inline void
@@ -302,6 +285,7 @@ sys_wait(struct intr_frame *f) {
     return_value(f, &exit_status);
 }
 
+// FIXME: Find and fix this cunt of a concurrency bug.
 static void
 sys_create(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
@@ -312,9 +296,7 @@ sys_create(struct intr_frame *f) {
         NOT_REACHED();
     }
 
-    lock_filesys();
     bool success = filesys_create(file_name, (off_t) initial_size);
-    release_filesys();
 
     return_value(f, &success);
 }
@@ -322,9 +304,7 @@ sys_create(struct intr_frame *f) {
 static void sys_remove(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
 
-    lock_filesys();
     bool success = filesys_remove(file_name);
-    release_filesys();
 
     return_value(f, &success);
 }
@@ -345,10 +325,7 @@ static void sys_open(struct intr_frame *f) {
         NOT_REACHED();
     }
 
-    lock_filesys();
     struct file *file = filesys_open(file_name);
-    release_filesys();
-
     int fd = -1;
 
     if (file != NULL) {
@@ -378,10 +355,8 @@ Returns the size, in bytes, of the file open as fd. */
 static void sys_filesize(struct intr_frame *f) {
     decl_parameter(int, file_name, f->esp, 0);
 
-    lock_filesys();
     struct open_file_s *open_file_s = process_get_open_file_struct(file_name);
     off_t length = file_length(open_file_s->open_file);
-    release_filesys();
 
     return_value(f, &length);
 }
@@ -408,11 +383,9 @@ static void sys_read(struct intr_frame *f) {
         fail_if_invalid_user_addr(buffer);
         uint8_t *buff = (uint8_t *) buffer;
 
-        lock_filesys();
         for (int i = 0 ; i < size; i++) {
             buff[i] = input_getc();
         }
-        release_filesys();
 
         return_value(f, buff);
     } else {
@@ -440,9 +413,7 @@ static void sys_read(struct intr_frame *f) {
 
         uint8_t *buff = (uint8_t *) buffer;
 
-        lock_filesys();
         int read_file = file_read(open_file_s->open_file, buff, size);
-        release_filesys();
 
         int result = (file_can_be_read) ? read_file : EXIT_FAILURE;
         return_value(f, &result);
@@ -480,9 +451,7 @@ sys_write(struct intr_frame *f) {
             exit_process(EXIT_FAILURE);
         }
 
-        lock_filesys();
         bytes_written = (unsigned) file_write(dst, buffer, size);
-        release_filesys();
     }
 
     return_value(f, &bytes_written);
@@ -494,15 +463,11 @@ sys_seek(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0);
     decl_parameter(unsigned, position, f->esp, 0);
 
-    lock_filesys();
-
     // If descriptor not null use file_seek(file, position)
     struct open_file_s *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
         file_seek (open_file->open_file, position);
     }
-
-    release_filesys();
 }
 /*unsigned tell (int fd)
 Returns the position of the next byte to be read or written in open file fd, expressed in bytes
@@ -514,9 +479,7 @@ static void sys_tell(struct intr_frame *f) {
 
     struct open_file_s *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
-        lock_filesys();
         position = (unsigned) file_tell (open_file->open_file);
-        release_filesys();
     }
 
     /* Return the result by setting the eax value in the interrupt frame. */
@@ -526,25 +489,19 @@ static void sys_tell(struct intr_frame *f) {
 void
 close_syscall(struct open_file_s *file_descriptor,
               bool remove_fd_entry) {
-
-    lock_filesys();
-
     // If the file is found, close it
     if (file_descriptor != NULL) {
         file_close(file_descriptor->open_file);
 
-// Remove the entry from the open_files hash table.
+        // Remove the entry from the open_files hash table.
         if (remove_fd_entry) {
             struct open_file_s open_file;
             open_file.fd = file_descriptor->fd;
-//            list_remove(&open_file_s.fd_elem);
             hash_delete(&thread_current()->process->open_files,
                         &open_file.fd_elem);
         }
         free(file_descriptor);
     }
-
-    release_filesys();
 }
 
 /*

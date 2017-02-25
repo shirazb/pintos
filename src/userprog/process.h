@@ -20,7 +20,8 @@ struct open_file_s {
 
 struct process {
     pid_t pid;               /* Process id of a process  */
-    char *executable;    /* The file this process executes. */
+    char *executable_name;    /* The name of the file this process executes. */
+    struct file *executable; /* The file this process executes. */
     int next_fd;         /* Process' unique fd */
     int exit_status;         /* Exit status of a thread. */
     struct hash open_files;  /* List of file descriptors of open files */
