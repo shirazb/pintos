@@ -262,9 +262,6 @@ start_process(void *start_proc_info) {
         NOT_REACHED();
     }
 
-    // Make file read only
-    file_deny_write(filesys_open(file_name));
-
     //Setting up the stack for user programs
 
     //Pushing arguments onto stack in reverse order
@@ -453,14 +450,18 @@ process_exit(void) {
     // Print exiting message
     printf("%s: exit(%i)\n", proc_curr->executable_name, proc_curr->exit_status);
 
+    // Close the executable file only now that execution finished and allow
+    // writes to it.
+    if (proc_curr->loaded_correctly) {
+        file_allow_write(proc_curr->executable);
+        file_close(proc_curr->executable);
+    }
+
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
         destroy_process(proc_curr);
     }
-
-    // Close the executable file only now that execution finished.
-    file_close(proc_curr->executable);
 
     intr_set_level(old_level);
 
@@ -717,6 +718,7 @@ load(const char *file_name, void (**eip)(void), void **esp) {
     // execution of it has finished.
     if (success) {
         process_current()->executable = file;
+        file_deny_write(file);
     } else {
         file_close(file);
     }
