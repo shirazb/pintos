@@ -14,6 +14,9 @@
 
 #define BYTE_SIZE 8
 
+#define CONSOLE_WRITE_FD 1
+#define KEYBOARD_READ_FD 0
+
 /*
  * Declares a variable called PARAM of type TYPE. Initialises it to parameter
  * number INDEX taken from the stack frame pointed to by ESP.
@@ -39,7 +42,7 @@ static void exit_process(int status);
 static int get_user(const uint8_t *uaddr);
 static int read_user_word(uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
-static inline uint8_t *get_syscall_param_addr(void *esp, int index);
+static inline uint8_t *get_syscall_param_addr(void *esp, unsigned index);
 static inline void fail_if_invalid_user_addr(const void *addr);
 static inline void return_value(struct intr_frame *f, void *val);
 
@@ -162,17 +165,18 @@ get_user(const uint8_t *uaddr) {
  */
 static int
 read_user_word(uint8_t *uaddr) {
-    const int n = sizeof(uint32_t) / sizeof(uint8_t);
+    const unsigned n = sizeof(uint32_t) / sizeof(uint8_t);
 
     uint8_t *byte_addr;
     int word = 0;
     int temp = 0;
 
-    for (int i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; i++) {
         byte_addr = uaddr + i;
-
         fail_if_invalid_user_addr(byte_addr);
+
         temp = get_user(byte_addr);
+//        printf("--- DEBUG: Result from get_user[%u] was 0x%02x\n", i, temp);
         if (temp == -1) {
             exit_process(EXIT_FAILURE);
             NOT_REACHED();
@@ -191,7 +195,7 @@ static bool
 put_user(uint8_t *udst, uint8_t byte) {
     int error_code;
     asm ("movl $1f, %0; movb %b2, %1; 1:" : "=&a" (error_code), "=m" (*udst)
-    : "q" (byte));
+            : "q" (byte));
     return error_code != -1;
 }
 
@@ -211,7 +215,7 @@ fail_if_invalid_user_addr(const void *addr) {
  * Validates stack pointer then gets a parameter from the stack.
  */
 static inline uint8_t *
-get_syscall_param_addr(void *esp, int index) {
+get_syscall_param_addr(void *esp, unsigned index) {
     // Remove syscall number + index of argument
     // Note, all syscall parameters in Pintos are 32 bits.
     uint8_t *addr = (uint8_t *) ((uint32_t *) esp + 1 + index);
@@ -375,15 +379,16 @@ static void sys_read(struct intr_frame *f) {
     bool file_can_be_read = true;
     int exit_failure = EXIT_FAILURE;
 
-//  if fd is -1, it means we are trying to read from STDOUT so error
+    // If fd is -1, it means we are trying to read from STDOUT so return error
     if (fd == -1) {
         return_value(f, &exit_failure);
-    } else if (fd == 0) {
+    } else if (fd == KEYBOARD_READ_FD) {
         //  validate buffer
+        // FIXME: Surely have to validate every addr in buffer
         fail_if_invalid_user_addr(buffer);
         uint8_t *buff = (uint8_t *) buffer;
 
-        for (int i = 0 ; i < size; i++) {
+        for (unsigned i = 0 ; i < size; i++) {
             buff[i] = input_getc();
         }
 
@@ -438,7 +443,7 @@ sys_write(struct intr_frame *f) {
     unsigned bytes_written = 0;
 
     // Write to console.
-    if (fd == 1) {
+    if (fd == CONSOLE_WRITE_FD) {
         // TODO: Break up the buffer if size more than a few hundred bytes
         putbuf(buffer, size);
         bytes_written = size;
@@ -461,7 +466,7 @@ sys_write(struct intr_frame *f) {
 static void
 sys_seek(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0);
-    decl_parameter(unsigned, position, f->esp, 0);
+    decl_parameter(unsigned, position, f->esp, 1);
 
     // If descriptor not null use file_seek(file, position)
     struct open_file_s *open_file = process_get_open_file_struct (fd);

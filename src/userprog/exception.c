@@ -150,10 +150,10 @@ page_fault(struct intr_frame *f) {
 
     if (!user) {
         // Set eax to 0xffffffff and copies the old value into eip.
-        f->eip = (void (*)(void)) f->eax;
+        f->eip = * (void (**)(void)) &f->eax;
         f->eax = 0xffffffff;
         kill_process();
-        NOT_REACHED();
+//        return;
     }
 
     /* To implement virtual memory, delete the rest of the function
