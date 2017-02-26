@@ -42,13 +42,17 @@ static void exit_process(int status);
 static int get_user(const uint8_t *uaddr);
 static int read_user_word(uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
-
 static inline uint8_t *get_syscall_param_addr(void *esp, unsigned index);
 static inline void fail_if_invalid_user_addr(const void *addr);
 
+/* Returning values to the user process */
 static inline void return_value(struct intr_frame *f, void *val);
 static inline void return_exit_failure(struct intr_frame *f);
 static inline void return_exit_success(struct intr_frame *f);
+
+/* Helpers for sys_read(). */
+static void read_from_keyboard(const void *buffer, unsigned size);
+static int read_from_file(int fd, const void *buffer, unsigned size);
 
 /* Table of syscalls */
 typedef void (syscall_f)(struct intr_frame *);
@@ -398,62 +402,84 @@ static void sys_read(struct intr_frame *f) {
     decl_parameter(const void *, buffer, f->esp, 1);
     decl_parameter(unsigned, size, f->esp, 2);
 
-    bool file_can_be_read = true;
+    int bytes_written;
 
+    // TODO: Is this meant to be 1? Factor out into a macro when we know what
+    // TODO:     the name of it should be.
     // If fd is -1, it means we are trying to read from STDOUT so return error
     if (fd == -1) {
-        return_exit_failure(f);
-
+        bytes_written = EXIT_FAILURE;
     } else if (fd == KEYBOARD_READ_FD) {
-        //  Validate buffer
-        uint8_t *buff = (uint8_t *) buffer;
-
-        // TODO: Factor out in write_user_word()
-        for (unsigned i = 0 ; i < size; i++) {
-            uint8_t key = input_getc();
-
-            fail_if_invalid_user_addr(buff + i);
-            bool success = put_user(buff + i, key);
-            if (!success) {
-                exit_process(EXIT_FAILURE);
-                NOT_REACHED();
-            }
-        }
-
-        return_value(f, &size);
-
+        read_from_keyboard(buffer, size);
+        bytes_written = size;
     } else {
-        // Attempting to read from not a file
-        if (fd < LOWEST_FILE_FD) {
-            return_exit_failure(f);
-        }
+        bytes_written = read_from_file(fd, buffer, size);
+    }
 
-        // Validate buffer
-        fail_if_invalid_user_addr(buffer);
+    return_value(f, &bytes_written);
+}
 
-        struct open_file_s *open_file_s = process_get_open_file_struct((unsigned int) fd);
+/*
+ * Reads size bytes from the keyboard, putting the result into buffer.
+ * Buffer resides in user address space. Causes the process to fail if the
+ * buffer cannot be written to.
+ */
+static void
+read_from_keyboard(const void *buffer, unsigned size) {
+    uint8_t *buff = (uint8_t *) buffer;
+    uint8_t read_char;
 
-        if (open_file_s == NULL) {
+    // Write from keyboard into the buffer, checking address of each byte.
+    for (unsigned i = 0 ; i < size; i++) {
+        read_char = input_getc();
+
+        fail_if_invalid_user_addr(buff + i);
+        bool success = put_user(buff + i, read_char);
+        if (!success) {
             exit_process(EXIT_FAILURE);
             NOT_REACHED();
         }
+    }
+}
 
-        struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
-
-        // fd needs to exist and be valid
-        if (fd_elem == NULL) {
-            file_can_be_read = false;
-        }
-
-        uint8_t *buff = (uint8_t *) buffer;
-
-        int read_file = file_read(open_file_s->open_file, buff, size);
-
-        int result = file_can_be_read ? read_file : EXIT_FAILURE;
-        return_value(f, &result);
+/*
+ * Reads up to size bytes from the file with the given fd into the buffer.
+ * Returns the number of bytes actually written.
+ * Returns EXIT_FAILURE on invalid fd.
+ * Buffer must reside in user space. Causes the process to fail if the buffer
+ * cannot be written to.
+ */
+static int read_from_file(int fd, const void *buffer, unsigned size) {
+    // Attempting to read from not a file.
+    if (fd < LOWEST_FILE_FD) {
+        return EXIT_FAILURE;
     }
 
+    // TODO: Should this exit process or return exit failure?
+    // Get the open file from the fd
+    struct open_file_s *open_file = process_get_open_file_struct((unsigned int) fd);
+    if (open_file == NULL) {
+        exit_process(EXIT_FAILURE);
+        NOT_REACHED();
+    }
+
+
+    // To read from the file, fd needs to exist and be valid.
+    struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file->fd_elem);
+    if (fd_elem == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    // Validate the buffer.
+    uint8_t *buff = (uint8_t *) buffer;
+    for (unsigned i = 0 ; i < size; i++) {
+        fail_if_invalid_user_addr(buff + i);
+    }
+
+    // Read from the file into the buffer, returning the bytes written.
+    return file_read(open_file->open_file, buff, size);
 }
+
 
 /*
  * int write(int fd, const void *buffer, unsigned size)
