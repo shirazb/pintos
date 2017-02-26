@@ -327,7 +327,7 @@ static int read_from_file(int fd, const void *buffer, unsigned size) {
     }
 
     // Read from the file into the buffer, returning the bytes written.
-    return file_read(open_file->open_file, buff, size);
+    return file_read(open_file->file, buff, size);
 }
 
 /**************************** System calls ************************************/
@@ -360,7 +360,7 @@ sys_exec(struct intr_frame *f) {
     }
 
     // Get the child process struct.
-    struct process *child = process_lookup(child_tid, process_current());
+    struct process *child = process_from_pid(child_tid, process_current());
     ASSERT(child != NULL);
 
     // Wait for program to be loaded. If loaded correctly, return -1.
@@ -434,7 +434,7 @@ static void sys_open(struct intr_frame *f) {
         }
 
         fd = generate_fd(process_current());
-        open_file_s->open_file = file;
+        open_file_s->file = file;
         open_file_s->fd = fd;
 
         hash_insert(&process_current()->open_files, &open_file_s->fd_elem);
@@ -451,7 +451,7 @@ static void sys_filesize(struct intr_frame *f) {
     decl_parameter(int, file_name, f->esp, 0);
 
     struct open_file_s *open_file_s = process_get_open_file_struct(file_name);
-    off_t length = file_length(open_file_s->open_file);
+    off_t length = file_length(open_file_s->file);
 
     return_value(f, &length);
 }
@@ -531,7 +531,7 @@ sys_seek(struct intr_frame *f) {
     // If descriptor not null use file_seek(file, position)
     struct open_file_s *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
-        file_seek (open_file->open_file, position);
+        file_seek (open_file->file, position);
     }
 }
 /*unsigned tell (int fd)
@@ -544,7 +544,7 @@ static void sys_tell(struct intr_frame *f) {
 
     struct open_file_s *open_file = process_get_open_file_struct (fd);
     if (open_file != NULL) {
-        position = (unsigned) file_tell (open_file->open_file);
+        position = (unsigned) file_tell (open_file->file);
     }
 
     /* Return the result by setting the eax value in the interrupt frame. */
@@ -567,7 +567,7 @@ void
 close_syscall(struct open_file_s *open_file, bool remove_fd_entry) {
     // If the file is found, close it
     if (open_file != NULL) {
-        file_close(open_file->open_file);
+        file_close(open_file->file);
 
         // Remove the entry from the open_files hash table.
         if (remove_fd_entry) {

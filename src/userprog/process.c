@@ -178,7 +178,7 @@ process_get_open_file(int fd) {
             fd_elem
     );
 
-    return found_fd == NULL ? NULL : found_fd->open_file;
+    return found_fd == NULL ? NULL : found_fd->file;
 }
 
 /*
@@ -375,7 +375,7 @@ parse_args(char *file_name, char **argv) {
 int
 process_wait(tid_t child_tid) {
     struct process *p = process_current();
-    struct process *child_proc = process_lookup(child_tid, p);
+    struct process *child_proc = process_from_pid(child_tid, p);
 
     // If child not found or already waited on or was killed by kernel, fail.
     if (child_proc == NULL) {
@@ -510,7 +510,7 @@ notify_child_of_exit(struct process *p) {
  * Looks up a process from the parent's list of children by PID.
  */
 struct process *
-process_lookup(pid_t pid, struct process *parent) {
+process_from_pid(pid_t pid, struct process *parent) {
     lock_acquire(&parent->process_lock);
 
     struct process *child_proc = NULL;
