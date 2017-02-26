@@ -181,33 +181,42 @@ process_get_open_file(int fd) {
     return found_fd == NULL ? NULL : found_fd->open_file;
 }
 
-/*Get the open_file struct*/
+/*
+ * Get the open_file struct of the process from its fd.
+ */
 struct open_file_s *
-process_get_open_file_struct(int fd)
-{
+process_get_open_file_struct(int fd) {
     // fd 0 and 1 are reserved for stout and stderr respectively.
-    if (fd < 2)
+    if (fd < LOWEST_FILE_FD) {
         return NULL;
+    }
 
-    struct open_file_s open_file;
-    open_file.fd = fd;
+    struct process *cur = process_current();
 
-    struct thread *t = thread_current ();
+    // Get the corresponding open file from the hash map.
+    struct open_file_s search_open_file;
+    search_open_file.fd = fd;
 
-    lock_acquire(&t->process->process_lock);
-    struct hash open_files_hash = t->process->open_files;
-    lock_release(&t->process->process_lock);
+    lock_acquire(&cur->process_lock);
+    struct hash_elem *found_file_elem = hash_find(
+            &cur->open_files,
+            &search_open_file.fd_elem
+    );
+    lock_release(&cur->process_lock);
 
-    struct hash_elem *found_element = hash_find (&open_files_hash,
-                                                 &open_file.fd_elem);
-    if (found_element == NULL)
+    // File not found, return NULL.
+    if (found_file_elem == NULL) {
         return NULL;
+    }
 
-    struct open_file_s *open_file_descriptor = hash_entry (found_element,
-                                                               struct open_file_s,
-                                                               fd_elem);
+    // Else, return the file.
+    struct open_file_s *open_file = hash_entry(
+            found_file_elem,
+            struct open_file_s,
+            fd_elem
+    );
 
-    return open_file_descriptor;
+    return open_file;
 }
 
 

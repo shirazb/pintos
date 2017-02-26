@@ -54,6 +54,8 @@ static inline void return_exit_success(struct intr_frame *f);
 static void read_from_keyboard(const void *buffer, unsigned size);
 static int read_from_file(int fd, const void *buffer, unsigned size);
 
+void close_syscall(struct open_file_s *open_file, bool remove_fd_entry);
+
 /* Table of syscalls */
 typedef void (syscall_f)(struct intr_frame *);
 static inline void init_syscalls_table(void);
@@ -168,6 +170,7 @@ get_syscall_number(struct intr_frame *f) {
     // Check number is valid
     if (syscall_num < 0 || syscall_num > NUM_SYSCALLS - 1) {
         exit_process(EXIT_FAILURE);
+        NOT_REACHED();
     }
 
     return syscall_num;
@@ -202,7 +205,6 @@ read_user_word(uint8_t *uaddr) {
         fail_if_invalid_user_addr(byte_addr);
 
         temp = get_user(byte_addr);
-//        printf("--- DEBUG: Result from get_user[%u] was 0x%02x\n", i, temp);
         if (temp == -1) {
             exit_process(EXIT_FAILURE);
             NOT_REACHED();
@@ -252,7 +254,6 @@ get_syscall_param_addr(void *esp, unsigned index) {
 /*
  * Exits a process -- sets its exit status and then exits the thread
  */
-// TODO: Should exit codes be uint8_t?
 static void
 exit_process(int status) {
     struct thread *curr = thread_current();
@@ -268,7 +269,68 @@ exit_process(int status) {
     NOT_REACHED();
 }
 
-/************* System calls *************/
+/*
+ * Reads size bytes from the keyboard, putting the result into buffer.
+ * Buffer resides in user address space. Causes the process to fail if the
+ * buffer cannot be written to.
+ */
+static void
+read_from_keyboard(const void *buffer, unsigned size) {
+    uint8_t *buff = (uint8_t *) buffer;
+    uint8_t read_char;
+
+    // Write from keyboard into the buffer, checking address of each byte.
+    for (unsigned i = 0 ; i < size; i++) {
+        read_char = input_getc();
+
+        fail_if_invalid_user_addr(buff + i);
+        bool success = put_user(buff + i, read_char);
+        if (!success) {
+            exit_process(EXIT_FAILURE);
+            NOT_REACHED();
+        }
+    }
+}
+
+/*
+ * Reads up to size bytes from the file with the given fd into the buffer.
+ * Returns the number of bytes actually written.
+ * Returns EXIT_FAILURE on invalid fd.
+ * Buffer must reside in user space. Causes the process to fail if the buffer
+ * cannot be written to.
+ */
+static int read_from_file(int fd, const void *buffer, unsigned size) {
+    // Attempting to read from not a file.
+    if (fd < LOWEST_FILE_FD) {
+        return EXIT_FAILURE;
+    }
+
+    // TODO: Should this exit process or return exit failure?
+    // Get the open file from the fd
+    struct open_file_s *open_file = process_get_open_file_struct((unsigned int) fd);
+    if (open_file == NULL) {
+        exit_process(EXIT_FAILURE);
+        NOT_REACHED();
+    }
+
+
+    // To read from the file, fd needs to exist and be valid.
+    struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file->fd_elem);
+    if (fd_elem == NULL) {
+        return EXIT_FAILURE;
+    }
+
+    // Validate the buffer.
+    uint8_t *buff = (uint8_t *) buffer;
+    for (unsigned i = 0 ; i < size; i++) {
+        fail_if_invalid_user_addr(buff + i);
+    }
+
+    // Read from the file into the buffer, returning the bytes written.
+    return file_read(open_file->open_file, buff, size);
+}
+
+/**************************** System calls ************************************/
 
 // TODO: make arg void
 static void
@@ -339,7 +401,8 @@ static void sys_remove(struct intr_frame *f) {
     return_value(f, &success);
 }
 
-static int generate_fd (struct process *p) {
+// FIXME: Do we need to lock here?
+static int generate_fd(struct process *p) {
     lock_acquire(&p->process_lock);
     int fd = p->next_fd++;
     lock_release(&p->process_lock);
@@ -380,8 +443,10 @@ static void sys_open(struct intr_frame *f) {
     return_value(f, &fd);
 }
 
-/*int filesize (int fd)
-Returns the size, in bytes, of the file open as fd. */
+/* int filesize (int fd)
+ *
+ * Returns the size, in bytes, of the file open as fd.
+ */
 static void sys_filesize(struct intr_frame *f) {
     decl_parameter(int, file_name, f->esp, 0);
 
@@ -391,12 +456,14 @@ static void sys_filesize(struct intr_frame *f) {
     return_value(f, &length);
 }
 
-/*int read (int fd, void *buffer, unsigned size)
-Reads size bytes from the file open as fd into buffer. Returns the number of bytes actually
-read (0 at end of file), or -1 if the file could not be read (due to a condition other than
-end of file). Fd 0 reads from the keyboard using input_getc(), which can be found in
-‘src/devices/input.h’.*/
-// TODO: How can we check if file can be read?
+/*
+ * int read (int fd, void *buffer, unsigned size)
+ *
+ * Reads size bytes from the file open as fd into buffer. Returns the number of
+ * bytes actually read (0 at end of file), or -1 if the file could not be read
+ * (due to a condition other than end of file). Fd 0 reads from the keyboard
+ * using input_getc(), which can be found in ‘src/devices/input.h’.
+ */
 static void sys_read(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0);
     decl_parameter(const void *, buffer, f->esp, 1);
@@ -418,68 +485,6 @@ static void sys_read(struct intr_frame *f) {
 
     return_value(f, &bytes_written);
 }
-
-/*
- * Reads size bytes from the keyboard, putting the result into buffer.
- * Buffer resides in user address space. Causes the process to fail if the
- * buffer cannot be written to.
- */
-static void
-read_from_keyboard(const void *buffer, unsigned size) {
-    uint8_t *buff = (uint8_t *) buffer;
-    uint8_t read_char;
-
-    // Write from keyboard into the buffer, checking address of each byte.
-    for (unsigned i = 0 ; i < size; i++) {
-        read_char = input_getc();
-
-        fail_if_invalid_user_addr(buff + i);
-        bool success = put_user(buff + i, read_char);
-        if (!success) {
-            exit_process(EXIT_FAILURE);
-            NOT_REACHED();
-        }
-    }
-}
-
-/*
- * Reads up to size bytes from the file with the given fd into the buffer.
- * Returns the number of bytes actually written.
- * Returns EXIT_FAILURE on invalid fd.
- * Buffer must reside in user space. Causes the process to fail if the buffer
- * cannot be written to.
- */
-static int read_from_file(int fd, const void *buffer, unsigned size) {
-    // Attempting to read from not a file.
-    if (fd < LOWEST_FILE_FD) {
-        return EXIT_FAILURE;
-    }
-
-    // TODO: Should this exit process or return exit failure?
-    // Get the open file from the fd
-    struct open_file_s *open_file = process_get_open_file_struct((unsigned int) fd);
-    if (open_file == NULL) {
-        exit_process(EXIT_FAILURE);
-        NOT_REACHED();
-    }
-
-
-    // To read from the file, fd needs to exist and be valid.
-    struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file->fd_elem);
-    if (fd_elem == NULL) {
-        return EXIT_FAILURE;
-    }
-
-    // Validate the buffer.
-    uint8_t *buff = (uint8_t *) buffer;
-    for (unsigned i = 0 ; i < size; i++) {
-        fail_if_invalid_user_addr(buff + i);
-    }
-
-    // Read from the file into the buffer, returning the bytes written.
-    return file_read(open_file->open_file, buff, size);
-}
-
 
 /*
  * int write(int fd, const void *buffer, unsigned size)
@@ -546,24 +551,6 @@ static void sys_tell(struct intr_frame *f) {
     return_value(f, &position);
 }
 
-void
-close_syscall(struct open_file_s *file_descriptor,
-              bool remove_fd_entry) {
-    // If the file is found, close it
-    if (file_descriptor != NULL) {
-        file_close(file_descriptor->open_file);
-
-        // Remove the entry from the open_files hash table.
-        if (remove_fd_entry) {
-            struct open_file_s open_file;
-            open_file.fd = file_descriptor->fd;
-            hash_delete(&thread_current()->process->open_files,
-                        &open_file.fd_elem);
-        }
-        free(file_descriptor);
-    }
-}
-
 /*
  * void close (int fd)
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file
@@ -571,11 +558,25 @@ descriptors, as if by calling this function for each one.*/
 static void sys_close(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0);
 
-    struct open_file_s *open_file = process_get_open_file_struct (fd);
+    struct open_file_s *open_file = process_get_open_file_struct(fd);
 
     close_syscall(open_file, true);
 }
 
+void
+close_syscall(struct open_file_s *open_file, bool remove_fd_entry) {
+    // If the file is found, close it
+    if (open_file != NULL) {
+        file_close(open_file->open_file);
+
+        // Remove the entry from the open_files hash table.
+        if (remove_fd_entry) {
+            hash_delete(&thread_current()->process->open_files,
+                        &open_file->fd_elem);
+        }
+        free(open_file);
+    }
+}
 
 /*mapid_t mmap (int fd, void *addr)
 Maps the file open as fd into the process’s virtual address space. The entire file is mapped
