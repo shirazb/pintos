@@ -332,9 +332,8 @@ static int read_from_file(int fd, const void *buffer, unsigned size) {
 
 /**************************** System calls ************************************/
 
-// TODO: make arg void
 static void
-sys_halt(struct intr_frame *f) {
+sys_halt(struct intr_frame *f UNUSED) {
     shutdown_power_off();
 }
 
@@ -556,7 +555,10 @@ static void sys_tell(struct intr_frame *f) {
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file
 descriptors, as if by calling this function for each one.*/
 static void sys_close(struct intr_frame *f) {
+
     decl_parameter(int, fd, f->esp, 0);
+
+//    printf("---DEBUG: Closing file: %i", fd);
 
     struct open_file_s *open_file = process_get_open_file_struct(fd);
 
@@ -567,60 +569,47 @@ void
 close_syscall(struct open_file_s *open_file, bool remove_fd_entry) {
     // If the file is found, close it
     if (open_file != NULL) {
-        file_close(open_file->file);
+        file_close (open_file->file);
 
         // Remove the entry from the open_files hash table.
         if (remove_fd_entry) {
-            hash_delete(&thread_current()->process->open_files,
-                        &open_file->fd_elem);
+            hash_delete (&thread_current()->process->open_files,
+                         &open_file->fd_elem);
         }
-        free(open_file);
+        free (open_file);
     }
 }
 
 /*mapid_t mmap (int fd, void *addr)
 Maps the file open as fd into the process’s virtual address space. The entire file is mapped
-into consecutive virtual pages starting at addr.
+into consecutive virtual pages starting at addr. */
 
-Your VM system must lazily load pages in mmap regions and use the mmaped file itself as
-backing store for the mapping. That is, evicting a page mapped by mmap writes it back to
-the file it was mapped from.
-If the file’s length is not a multiple of PGSIZE, then some bytes in the final mapped page
-“stick out” beyond the end of the file. Set these bytes to zero when the page is faulted in
-from the file system, and discard them when the page is written back to disk.
-If successful, this function returns a “mapping ID” that uniquely identifies the mapping within
-the process. On failure, it must return -1, which otherwise should not be a valid mapping id,
-and the process’s mappings must be unchanged.
-A call to mmap may fail if the file open as fd has a length of zero bytes. It must fail if addr is
-not page-aligned or if the range of pages mapped overlaps any existing set of mapped pages,
-including the stack or pages mapped at executable load time. It must also fail if addr is 0,
-because some Pintos code assumes virtual page 0 is not mapped. Finally, file descriptors 0
-and 1, representing console input and output, are not mappable.*/
-static void sys_mmap(struct intr_frame *f) {
+
+static void sys_mmap(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: mmap()");
 }
 
-static void sys_munmap(struct intr_frame *f) {
+static void sys_munmap(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: munmao()");
 }
 
-static void sys_chdir(struct intr_frame *f) {
+static void sys_chdir(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: chdir()");
 }
 
-static void sys_mkdir(struct intr_frame *f) {
+static void sys_mkdir(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: mkdir()");
 }
 
-static void sys_readdir(struct intr_frame *f) {
+static void sys_readdir(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: readdir()");
 }
 
-static void sys_isdir(struct intr_frame *f) {
+static void sys_isdir(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: isdir()");
 }
 
-static void sys_inumber(struct intr_frame *f) {
+static void sys_inumber(struct intr_frame *f UNUSED) {
     ASSERT("ERROR SYSCALL NOT IMPLEMENTED: inumber()");
 }
 
