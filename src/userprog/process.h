@@ -53,4 +53,6 @@ struct open_file_s *process_get_open_file_struct(int fd);
 void setup_test_process(void);
 void tear_down_test_process(void);
 
+void open_files_destroy_func (struct hash_elem *e, void *aux UNUSED);
+
 #endif /* userprog/process.h */
