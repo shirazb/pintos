@@ -42,9 +42,13 @@ static void exit_process(int status);
 static int get_user(const uint8_t *uaddr);
 static int read_user_word(uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
+
 static inline uint8_t *get_syscall_param_addr(void *esp, unsigned index);
 static inline void fail_if_invalid_user_addr(const void *addr);
+
 static inline void return_value(struct intr_frame *f, void *val);
+static inline void return_exit_failure(struct intr_frame *f);
+static inline void return_exit_success(struct intr_frame *f);
 
 /* Table of syscalls */
 typedef void (syscall_f)(struct intr_frame *);
@@ -87,6 +91,24 @@ syscall_init(void) {
 static inline void
 return_value(struct intr_frame *f, void *val) {
     f->eax = * (uint32_t *) val;
+}
+
+/*
+ * Returns EXIT_FAILURE to f's eax.
+ */
+static inline void
+return_exit_failure(struct intr_frame *f) {
+    int failure = EXIT_FAILURE;
+    f->eax = * (uint32_t *) &failure;
+}
+
+/*
+ * Returns EXIT_SUCCESS to f's eax.
+ */
+static inline void
+return_exit_success(struct intr_frame *f) {
+    int success = EXIT_SUCCESS;
+    f->eax = * (uint32_t *) &success;
 }
 
 static inline void
@@ -373,33 +395,40 @@ end of file). Fd 0 reads from the keyboard using input_getc(), which can be foun
 // TODO: How can we check if file can be read?
 static void sys_read(struct intr_frame *f) {
     decl_parameter(int, fd, f->esp, 0);
-    decl_parameter(void *, buffer, f->esp, 1);
+    decl_parameter(const void *, buffer, f->esp, 1);
     decl_parameter(unsigned, size, f->esp, 2);
 
     bool file_can_be_read = true;
-    int exit_failure = EXIT_FAILURE;
 
     // If fd is -1, it means we are trying to read from STDOUT so return error
     if (fd == -1) {
-        return_value(f, &exit_failure);
+        return_exit_failure(f);
+
     } else if (fd == KEYBOARD_READ_FD) {
-        //  validate buffer
-        // FIXME: Surely have to validate every addr in buffer
-        fail_if_invalid_user_addr(buffer);
+        //  Validate buffer
         uint8_t *buff = (uint8_t *) buffer;
 
+        // TODO: Factor out in write_user_word()
         for (unsigned i = 0 ; i < size; i++) {
-            buff[i] = input_getc();
+            uint8_t key = input_getc();
+
+            fail_if_invalid_user_addr(buff + i);
+            bool success = put_user(buff + i, key);
+            if (!success) {
+                exit_process(EXIT_FAILURE);
+                NOT_REACHED();
+            }
         }
 
-        return_value(f, buff);
+        return_value(f, &size);
+
     } else {
-//      check fd >= 2
-        if (fd < 2) {
-            return_value(f, &exit_failure);
+        // Attempting to read from not a file
+        if (fd < LOWEST_FILE_FD) {
+            return_exit_failure(f);
         }
 
-        //  validate buffer
+        // Validate buffer
         fail_if_invalid_user_addr(buffer);
 
         struct open_file_s *open_file_s = process_get_open_file_struct((unsigned int) fd);
@@ -411,7 +440,7 @@ static void sys_read(struct intr_frame *f) {
 
         struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file_s->fd_elem);
 
-//      fd needs to exist and be valid
+        // fd needs to exist and be valid
         if (fd_elem == NULL) {
             file_can_be_read = false;
         }
@@ -420,7 +449,7 @@ static void sys_read(struct intr_frame *f) {
 
         int read_file = file_read(open_file_s->open_file, buff, size);
 
-        int result = (file_can_be_read) ? read_file : EXIT_FAILURE;
+        int result = file_can_be_read ? read_file : EXIT_FAILURE;
         return_value(f, &result);
     }
 
