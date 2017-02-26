@@ -75,6 +75,8 @@ tear_down_test_process(void) {
 static void
 init_process(struct process *parent, char *file_name) {
 
+//    printf("---DEBUG: Initialising process with file_name: %s\n",file_name);
+
     ASSERT (file_name != NULL);
 
     struct process *p = malloc (sizeof (struct process));
@@ -396,15 +398,28 @@ process_wait(tid_t child_tid) {
 /*
  * Destroys a process struct -- frees its members on the heap then frees itself.
  */
+void
+open_files_destroy_func (struct hash_elem *e, void *aux UNUSED) {
+    struct open_file_s *open_file = hash_entry (e,
+                                                struct open_file_s,
+                                                fd_elem);
+
+    ASSERT (open_file->file != NULL);
+
+    // Close the file descriptor for the open file.
+    file_close (open_file->file);
+    free (open_file);
+}
+
 // TODO: Free open file memory in the hash map.
 static void
 destroy_process(struct process *p) {
     ASSERT(p != NULL);
     enum intr_level old_level = intr_disable();
 
-    hash_destroy(&p->open_files, NULL);
+    hash_destroy(&p->open_files, &open_files_destroy_func);
     if (p->pid != TEST_PROC_PID) {
-        list_remove(&p->child_proc_elem);
+        list_remove (&p->child_proc_elem);
     }
 
     free(p);
@@ -412,6 +427,8 @@ destroy_process(struct process *p) {
     intr_set_level(old_level);
 }
 
+
+// TODO: Do we need to check if this process is holding a lock and then free the lock?
 /* Free the current process's resources. */
 void
 process_exit(void) {
@@ -430,22 +447,24 @@ process_exit(void) {
            directory, or our active page directory will be one
            that's been freed (and cleared). */
         curr->pagedir = NULL;
-        pagedir_activate(NULL);
-        pagedir_destroy(pd);
+        pagedir_activate (NULL);
+        pagedir_destroy (pd);
     }
 
     struct process *proc_curr = process_current();
 
+
     enum intr_level old_level = intr_disable();
 
     struct process *child_proc = NULL;
-    for (struct list_elem *e = list_begin(&proc_curr->children);
-         e != list_end(&proc_curr->children);
-         e = list_next(e))
+    for (struct list_elem *e = list_begin (&proc_curr->children);
+         e != list_end (&proc_curr->children);
+         e = list_next (e))
     {
-        child_proc = list_entry(e, struct process, child_proc_elem);
-        notify_child_of_exit(child_proc);
+        child_proc = list_entry (e, struct process, child_proc_elem);
+        notify_child_of_exit (child_proc);
     }
+
 
     // Print exiting message
     printf("%s: exit(%i)\n", proc_curr->executable_name, proc_curr->exit_status);
@@ -453,20 +472,23 @@ process_exit(void) {
     // Close the executable file only now that execution finished and allow
     // writes to it.
     if (proc_curr->loaded_correctly) {
-        file_allow_write(proc_curr->executable);
-        file_close(proc_curr->executable);
+        file_allow_write (proc_curr->executable);
+        file_close (proc_curr->executable);
     }
 
     // If parent is dead, free this process' resources as noone needs them now.
     sema_up(&proc_curr->wait_till_death);
     if (!proc_curr->parent_is_alive) {
-        destroy_process(proc_curr);
+        destroy_process (proc_curr);
     }
 
-    intr_set_level(old_level);
+//    // destroy hash of open_files
+//    hash_destroy(&proc_curr->open_files, &open_files_destroy_func);
 
-    thread_exit();
-    NOT_REACHED();
+    intr_set_level (old_level);
+
+    thread_exit ();
+    NOT_REACHED ();
 }
 
 /*
