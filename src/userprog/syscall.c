@@ -309,8 +309,9 @@ static int read_from_file(int fd, const void *buffer, unsigned size) {
     // Get the open file from the fd
     struct open_file_s *open_file = process_get_open_file_struct((unsigned int) fd);
     if (open_file == NULL) {
-        exit_process(EXIT_FAILURE);
-        NOT_REACHED();
+//        exit_process(EXIT_FAILURE);
+//        NOT_REACHED();
+        return EXIT_FAILURE;
     }
 
 
