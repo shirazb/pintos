@@ -539,9 +539,13 @@ process_from_pid(pid_t pid, struct process *parent) {
          e = list_next(e))
     {
         curr = list_entry(e, struct process, child_proc_elem);
+        lock_acquire(&curr->process_lock);
         if (curr->pid == pid) {
             child_proc = curr;
+            lock_release(&curr->process_lock);
             break;
+        } else {
+            lock_release(&curr->process_lock);
         }
     }
 
