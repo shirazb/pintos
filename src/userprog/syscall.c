@@ -273,7 +273,7 @@ void fail_if_buffer_invalid(const void *buffer, unsigned int size) {
  * Generates the next fd for the process.
  */
 static int generate_fd(struct process *p) {
-    return p->next_fd;
+    return p->next_fd++;
 }
 
 /*
