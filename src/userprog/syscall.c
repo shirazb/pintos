@@ -470,10 +470,8 @@ static void sys_read(struct intr_frame *f) {
 
     int bytes_written;
 
-    // TODO: Is this meant to be 1? Factor out into a macro when we know what
-    // TODO:     the name of it should be.
-    // If fd is -1, it means we are trying to read from STDOUT so return error
-    if (fd == -1) {
+    // If fd is 1, it means we are trying to read from STDOUT so return error
+    if (fd == STDOUT_FILENO) {
         bytes_written = EXIT_FAILURE;
     } else if (fd == KEYBOARD_READ_FD) {
         read_from_keyboard(buffer, size);
