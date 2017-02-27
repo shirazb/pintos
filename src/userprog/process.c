@@ -44,7 +44,7 @@ static void notify_child_of_exit(struct process *p);
 static struct start_proc_info {
     char *fn_copy;
     struct process *parent;
-    struct semaphore child_has_read_info;
+    struct semaphore child_is_set_up;
 };
 
 /*
@@ -140,7 +140,7 @@ process_execute(const char *file_name) {
 
     proc_info.fn_copy = fn_copy;
     proc_info.parent = process_current();
-    sema_init(&proc_info.child_has_read_info, 0);
+    sema_init(&proc_info.child_is_set_up, 0);
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, &proc_info);
@@ -148,7 +148,7 @@ process_execute(const char *file_name) {
     if (tid == TID_ERROR) {
         palloc_free_page(fn_copy);
     } else {
-        sema_down(&proc_info.child_has_read_info);
+        sema_down(&proc_info.child_is_set_up);
     }
 
     return tid;
@@ -229,7 +229,6 @@ start_process(void *start_proc_info) {
     struct process *parent = start_info->parent;
     char *file_name = start_info->fn_copy;
 
-    sema_up(&start_info->child_has_read_info);
 
     /* Start setting up the stack. */
 
@@ -250,6 +249,7 @@ start_process(void *start_proc_info) {
 
     // Malloc and initialise the process struct.
     init_process(parent, file_name);
+    sema_up(&start_info->child_is_set_up);
     struct process *curr_proc = process_current();
 
     // Leave thread if loading of executable fails
