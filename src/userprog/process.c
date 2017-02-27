@@ -47,7 +47,6 @@ static struct start_proc_info {
     struct semaphore child_has_read_info;
 };
 
-static int num_pallocs = 0;
 
 /*
  * User program threads have the "main" kernel thread execute and wait on the
@@ -131,7 +130,6 @@ process_execute(const char *file_name) {
 
     /* Make a copy of FILE_NAME.
        Otherwise there's a race between the caller and load(). */
-    printf("allocated fn_copy %i\n", ++num_pallocs);
     fn_copy = palloc_get_page(0);
     if (fn_copy == NULL) {
         return TID_ERROR;
@@ -149,13 +147,11 @@ process_execute(const char *file_name) {
     tid = thread_create(file_name, PRI_DEFAULT, start_process, &proc_info);
 
     if (tid == TID_ERROR) {
-        printf("freed fn_copy on error %i\n", --num_pallocs);
         palloc_free_page(fn_copy);
+        sema_up(&proc_info.child_has_read_info);
     }
 
     sema_down(&proc_info.child_has_read_info);
-
-    printf("---tid on return = %i\n", tid);
 
     return tid;
 }
@@ -234,6 +230,7 @@ start_process(void *start_proc_info) {
     struct start_proc_info *start_info = (struct start_proc_info *) start_proc_info;
     struct process *parent = start_info->parent;
     char *file_name = start_info->fn_copy;
+
     sema_up(&start_info->child_has_read_info);
 
     /* Start setting up the stack. */
@@ -467,9 +464,6 @@ process_exit(void) {
 
     // Print exiting message
     printf("%s: exit(%i)\n", proc_curr->executable_name, proc_curr->exit_status);
-
-    // DEBUG
-    printf("freed fn_copy %i\n", --num_pallocs);
     palloc_free_page(proc_curr->executable_name);
 
     // Close the executable file only now that execution finished and allow
