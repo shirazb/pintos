@@ -47,6 +47,7 @@ static struct start_proc_info {
     struct semaphore child_has_read_info;
 };
 
+
 /*
  * User program threads have the "main" kernel thread execute and wait on the
  * user program. In order to allow a kernel thread to perform these tasks, we
@@ -74,9 +75,6 @@ tear_down_test_process(void) {
  */
 static void
 init_process(struct process *parent, char *file_name) {
-
-//    printf("---DEBUG: Initialising process with file_name: %s\n",file_name);
-
     ASSERT (file_name != NULL);
 
     struct process *p = malloc (sizeof (struct process));
@@ -147,8 +145,10 @@ process_execute(const char *file_name) {
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, &proc_info);
+
     if (tid == TID_ERROR) {
         palloc_free_page(fn_copy);
+        sema_up(&proc_info.child_has_read_info);
     }
 
     sema_down(&proc_info.child_has_read_info);
@@ -230,6 +230,7 @@ start_process(void *start_proc_info) {
     struct start_proc_info *start_info = (struct start_proc_info *) start_proc_info;
     struct process *parent = start_info->parent;
     char *file_name = start_info->fn_copy;
+
     sema_up(&start_info->child_has_read_info);
 
     /* Start setting up the stack. */
@@ -258,7 +259,6 @@ start_process(void *start_proc_info) {
     sema_up(&curr_proc->has_loaded);
 
     if (!curr_proc->loaded_correctly) {
-        // FIXME: Free fn_copy page after printing exit message.
         curr_proc->exit_status = EXIT_FAILURE;
         process_exit();
         NOT_REACHED();
@@ -279,9 +279,6 @@ start_process(void *start_proc_info) {
         strlcpy(if_.esp, arg, arg_len);
         argv[i] = if_.esp;
     }
-
-    // argv no longer needed as it has been pushed TODO: Check this
-//    palloc_free_page(file_name);
 
     //Rounding the stack pointer down to a multiple of 4 as word-aligned
     // access is faster
@@ -453,7 +450,6 @@ process_exit(void) {
 
     struct process *proc_curr = process_current();
 
-
     enum intr_level old_level = intr_disable();
 
     struct process *child_proc = NULL;
@@ -468,6 +464,7 @@ process_exit(void) {
 
     // Print exiting message
     printf("%s: exit(%i)\n", proc_curr->executable_name, proc_curr->exit_status);
+    palloc_free_page(proc_curr->executable_name);
 
     // Close the executable file only now that execution finished and allow
     // writes to it.
@@ -481,9 +478,6 @@ process_exit(void) {
     if (!proc_curr->parent_is_alive) {
         destroy_process (proc_curr);
     }
-
-//    // destroy hash of open_files
-//    hash_destroy(&proc_curr->open_files, &open_files_destroy_func);
 
     intr_set_level (old_level);
 
