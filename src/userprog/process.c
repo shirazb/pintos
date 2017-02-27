@@ -47,8 +47,6 @@ static struct start_proc_info {
     struct semaphore child_has_read_info;
 };
 
-static int malloc_num = 0;
-
 /*
  * User program threads have the "main" kernel thread execute and wait on the
  * user program. In order to allow a kernel thread to perform these tasks, we
@@ -84,7 +82,6 @@ init_process(struct process *parent, char *file_name) {
         thread_exit();
         NOT_REACHED();
     }
-    printf("---malloced a process %i\n", ++malloc_num);
 
     enum intr_level old_level = intr_disable();
 
@@ -384,6 +381,7 @@ process_wait(tid_t child_tid) {
     int exit_status = child_proc->exit_status;
 
     if (exit_status == EXIT_FAILURE) {
+        destroy_process(child_proc);
         return EXIT_FAILURE;
     }
 
@@ -421,7 +419,6 @@ destroy_process(struct process *p) {
     }
 
     free(p);
-    printf("---freed a process %i\n", --malloc_num);
 
     intr_set_level(old_level);
 }

@@ -354,10 +354,7 @@ static void
 sys_exec(struct intr_frame *f) {
     decl_parameter(const char *, cmd_line, f->esp, 0);
 
-    if(!is_user_vaddr(cmd_line + strlen(cmd_line))) {
-        exit_process(EXIT_FAILURE);
-        NOT_REACHED();
-    }
+    fail_if_buffer_invalid(cmd_line, (unsigned int) strlen(cmd_line));
 
     tid_t child_tid = process_execute(cmd_line);
 
@@ -387,9 +384,6 @@ sys_wait(struct intr_frame *f) {
 
 static void
 sys_create(struct intr_frame *f) {
-
-    enum intr_level old_level = intr_get_level();
-
     decl_parameter(char *, file_name, f->esp, 0);
     decl_parameter(unsigned int, initial_size, f->esp, 1);
 
@@ -401,7 +395,6 @@ sys_create(struct intr_frame *f) {
     bool success = filesys_create(file_name, (off_t) initial_size);
 
     return_value(f, &success);
-    intr_set_level(old_level);
 }
 
 static void sys_remove(struct intr_frame *f) {
