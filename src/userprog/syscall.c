@@ -8,6 +8,7 @@
 #include <devices/input.h>
 #include <threads/malloc.h>
 #include <lib/kernel/stdio.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
@@ -350,6 +351,8 @@ sys_exit(struct intr_frame *f) {
 static void
 sys_exec(struct intr_frame *f) {
     decl_parameter(const char *, cmd_line, f->esp, 0);
+
+    is_user_vaddr(cmd_line + strlen(cmd_line));
 
     tid_t child_tid = process_execute(cmd_line);
 
