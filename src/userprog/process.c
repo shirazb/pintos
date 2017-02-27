@@ -47,6 +47,7 @@ static struct start_proc_info {
     struct semaphore child_has_read_info;
 };
 
+static int malloc_num = 0;
 
 /*
  * User program threads have the "main" kernel thread execute and wait on the
@@ -83,6 +84,7 @@ init_process(struct process *parent, char *file_name) {
         thread_exit();
         NOT_REACHED();
     }
+    printf("---malloced a process %i\n", ++malloc_num);
 
     enum intr_level old_level = intr_disable();
 
@@ -148,10 +150,9 @@ process_execute(const char *file_name) {
 
     if (tid == TID_ERROR) {
         palloc_free_page(fn_copy);
-        sema_up(&proc_info.child_has_read_info);
+    } else {
+        sema_down(&proc_info.child_has_read_info);
     }
-
-    sema_down(&proc_info.child_has_read_info);
 
     return tid;
 }
@@ -420,6 +421,7 @@ destroy_process(struct process *p) {
     }
 
     free(p);
+    printf("---freed a process %i\n", --malloc_num);
 
     intr_set_level(old_level);
 }
