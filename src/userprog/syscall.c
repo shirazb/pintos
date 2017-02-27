@@ -54,12 +54,14 @@ static inline void return_exit_success(struct intr_frame *f);
 /* Helpers for sys_read(). */
 static void read_from_keyboard(const void *buffer, unsigned size);
 static int read_from_file(int fd, const void *buffer, unsigned size);
+static void fail_if_buffer_invalid(const void *buffer, unsigned int size);
 
 void close_syscall(struct open_file_s *open_file, bool remove_fd_entry);
 
 /* Table of syscalls */
 typedef void (syscall_f)(struct intr_frame *);
 static inline void init_syscalls_table(void);
+void fail_if_buffer_invalid(const void *buffer, unsigned int size);
 static syscall_f * syscall_table[NUM_SYSCALLS];
 
 /* System calls */
@@ -474,6 +476,10 @@ static void sys_read(struct intr_frame *f) {
 
     int bytes_written;
 
+//    fail_if_invalid_user_addr(buffer);
+
+    fail_if_buffer_invalid(buffer, size);
+
     // If fd is 1, it means we are trying to read from STDOUT so return error
     if (fd == STDOUT_FILENO) {
         bytes_written = EXIT_FAILURE;
@@ -485,6 +491,24 @@ static void sys_read(struct intr_frame *f) {
     }
 
     return_value(f, &bytes_written);
+}
+
+void fail_if_buffer_invalid(const void *buffer, unsigned int size) {
+    size_t into_page = ((size_t) buffer % PGSIZE);
+    size_t left_of_page = PGSIZE - into_page;
+    size_t bytes_checked = 0;
+    while (bytes_checked < size) {
+        fail_if_invalid_user_addr(buffer + bytes_checked);
+
+        if (bytes_checked + PGSIZE > size) {
+            if (size > bytes_checked + left_of_page) {
+                fail_if_invalid_user_addr(buffer + size);
+            }
+            break;
+        } else {
+            bytes_checked += PGSIZE;
+        }
+    }
 }
 
 /*
@@ -502,6 +526,8 @@ sys_write(struct intr_frame *f) {
     decl_parameter(unsigned, size, f->esp, 2);
 
     unsigned bytes_written = 0;
+
+    fail_if_buffer_invalid(buffer, size);
 
     // Write to console.
     if (fd == CONSOLE_WRITE_FD) {
