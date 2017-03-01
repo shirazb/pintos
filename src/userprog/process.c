@@ -120,8 +120,6 @@ init_process(struct process *parent, char *file_name) {
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
-// TODO: Find where we attempt to load the user program, so we can check if
-// it loaded correctly.
 tid_t
 process_execute(const char *file_name) {
     char *fn_copy;
@@ -218,7 +216,6 @@ process_get_open_file_struct(int fd) {
 
     return open_file;
 }
-
 
 /* A thread function that loads a user process and starts it
   running. */
@@ -356,7 +353,6 @@ parse_args(char *file_name, char **argv) {
     return argc;
 }
 
-
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -379,11 +375,6 @@ process_wait(tid_t child_tid) {
     // Wait for child process to finish then get its exit status.
     sema_down(&child_proc->wait_till_death);
     int exit_status = child_proc->exit_status;
-
-    if (exit_status == EXIT_FAILURE) {
-        destroy_process(child_proc);
-        return EXIT_FAILURE;
-    }
 
     // Free the child proc, it is no longer needed.
     destroy_process(child_proc);
@@ -423,8 +414,6 @@ destroy_process(struct process *p) {
     intr_set_level(old_level);
 }
 
-
-// TODO: Do we need to check if this process is holding a lock and then free the lock?
 /* Free the current process's resources. */
 void
 process_exit(void) {
