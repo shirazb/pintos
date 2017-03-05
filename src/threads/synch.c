@@ -321,9 +321,10 @@ cond_broadcast(struct condition *cond, struct lock *lock) {
  */
 void
 rw_lock_init(struct read_write_lock *rw_lock) {
+    ASSERT(rw_lock != NULL);
     rw_lock->num_readers = 0;
     lock_init(&rw_lock->num_readers_access);
-    lock_init(&rw_lock->resource_access);
+    sema_init(&rw_lock->resource_access, 1);
     lock_init(&rw_lock->wait_for_service);
 }
 
@@ -332,11 +333,12 @@ rw_lock_init(struct read_write_lock *rw_lock) {
  */
 void
 r_lock_acquire(struct read_write_lock *rw_lock) {
+    ASSERT(rw_lock != NULL);
     lock_acquire(&rw_lock->wait_for_service);
 
     lock_acquire(&rw_lock->num_readers_access);
-    if (!rw_lock->num_readers) {
-        lock_acquire(&rw_lock->resource_access);
+    if (rw_lock->num_readers == 0) {
+        sema_down(&rw_lock->resource_access);
     }
     rw_lock->num_readers++;
     lock_release(&rw_lock->num_readers_access);
@@ -349,10 +351,11 @@ r_lock_acquire(struct read_write_lock *rw_lock) {
  */
 void
 r_lock_release(struct read_write_lock *rw_lock) {
+    ASSERT(rw_lock != NULL);
     lock_acquire(&rw_lock->num_readers_access);
     rw_lock->num_readers--;
-    if (!rw_lock->num_readers) {
-        lock_release(&rw_lock->resource_access);
+    if (rw_lock->num_readers == 0) {
+        sema_up(&rw_lock->resource_access);
     }
     lock_release(&rw_lock->num_readers_access);
 }
@@ -362,8 +365,9 @@ r_lock_release(struct read_write_lock *rw_lock) {
  */
 void
 w_lock_acquire(struct read_write_lock *rw_lock) {
+    ASSERT(rw_lock != NULL);
     lock_acquire(&rw_lock->wait_for_service);
-    lock_acquire(&rw_lock->resource_access);
+    sema_down(&rw_lock->resource_access);
     lock_release(&rw_lock->wait_for_service);
 }
 
@@ -372,5 +376,6 @@ w_lock_acquire(struct read_write_lock *rw_lock) {
  */
 void
 w_lock_release(struct read_write_lock *rw_lock) {
-    lock_release(&rw_lock->resource_access);
+    ASSERT(rw_lock != NULL);
+    sema_up(&rw_lock->resource_access);
 }

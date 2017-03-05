@@ -43,8 +43,8 @@ bool lock_held_by_current_thread(const struct lock *);
 struct read_write_lock {
     unsigned int num_readers;
     struct lock num_readers_access;
-    struct lock resource_access;
     struct lock wait_for_service;
+    struct semaphore resource_access;
 };
 
 void rw_lock_init(struct read_write_lock *rw_lock);
