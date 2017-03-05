@@ -44,7 +44,7 @@ static void notify_child_of_exit(struct process *p);
 static struct start_proc_info {
     char *fn_copy;
     struct process *parent;
-    struct semaphore child_has_read_info;
+    struct semaphore child_is_set_up;
 };
 
 /*
@@ -74,9 +74,6 @@ tear_down_test_process(void) {
  */
 static void
 init_process(struct process *parent, char *file_name) {
-
-//    printf("---DEBUG: Initialising process with file_name: %s\n",file_name);
-
     ASSERT (file_name != NULL);
 
     struct process *p = malloc (sizeof (struct process));
@@ -123,8 +120,6 @@ init_process(struct process *parent, char *file_name) {
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
-// TODO: Find where we attempt to load the user program, so we can check if
-// it loaded correctly.
 tid_t
 process_execute(const char *file_name) {
     char *fn_copy;
@@ -143,15 +138,16 @@ process_execute(const char *file_name) {
 
     proc_info.fn_copy = fn_copy;
     proc_info.parent = process_current();
-    sema_init(&proc_info.child_has_read_info, 0);
+    sema_init(&proc_info.child_is_set_up, 0);
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, &proc_info);
+
     if (tid == TID_ERROR) {
         palloc_free_page(fn_copy);
+    } else {
+        sema_down(&proc_info.child_is_set_up);
     }
-
-    sema_down(&proc_info.child_has_read_info);
 
     return tid;
 }
@@ -221,7 +217,6 @@ process_get_open_file_struct(int fd) {
     return open_file;
 }
 
-
 /* A thread function that loads a user process and starts it
   running. */
 static void
@@ -230,7 +225,7 @@ start_process(void *start_proc_info) {
     struct start_proc_info *start_info = (struct start_proc_info *) start_proc_info;
     struct process *parent = start_info->parent;
     char *file_name = start_info->fn_copy;
-    sema_up(&start_info->child_has_read_info);
+
 
     /* Start setting up the stack. */
 
@@ -251,6 +246,7 @@ start_process(void *start_proc_info) {
 
     // Malloc and initialise the process struct.
     init_process(parent, file_name);
+    sema_up(&start_info->child_is_set_up);
     struct process *curr_proc = process_current();
 
     // Leave thread if loading of executable fails
@@ -258,7 +254,6 @@ start_process(void *start_proc_info) {
     sema_up(&curr_proc->has_loaded);
 
     if (!curr_proc->loaded_correctly) {
-        // FIXME: Free fn_copy page after printing exit message.
         curr_proc->exit_status = EXIT_FAILURE;
         process_exit();
         NOT_REACHED();
@@ -279,9 +274,6 @@ start_process(void *start_proc_info) {
         strlcpy(if_.esp, arg, arg_len);
         argv[i] = if_.esp;
     }
-
-    // argv no longer needed as it has been pushed TODO: Check this
-//    palloc_free_page(file_name);
 
     //Rounding the stack pointer down to a multiple of 4 as word-aligned
     // access is faster
@@ -361,7 +353,6 @@ parse_args(char *file_name, char **argv) {
     return argc;
 }
 
-
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
@@ -384,10 +375,6 @@ process_wait(tid_t child_tid) {
     // Wait for child process to finish then get its exit status.
     sema_down(&child_proc->wait_till_death);
     int exit_status = child_proc->exit_status;
-
-    if (exit_status == EXIT_FAILURE) {
-        return EXIT_FAILURE;
-    }
 
     // Free the child proc, it is no longer needed.
     destroy_process(child_proc);
@@ -427,8 +414,6 @@ destroy_process(struct process *p) {
     intr_set_level(old_level);
 }
 
-
-// TODO: Do we need to check if this process is holding a lock and then free the lock?
 /* Free the current process's resources. */
 void
 process_exit(void) {
@@ -453,7 +438,6 @@ process_exit(void) {
 
     struct process *proc_curr = process_current();
 
-
     enum intr_level old_level = intr_disable();
 
     struct process *child_proc = NULL;
@@ -468,6 +452,7 @@ process_exit(void) {
 
     // Print exiting message
     printf("%s: exit(%i)\n", proc_curr->executable_name, proc_curr->exit_status);
+    palloc_free_page(proc_curr->executable_name);
 
     // Close the executable file only now that execution finished and allow
     // writes to it.
@@ -481,9 +466,6 @@ process_exit(void) {
     if (!proc_curr->parent_is_alive) {
         destroy_process (proc_curr);
     }
-
-//    // destroy hash of open_files
-//    hash_destroy(&proc_curr->open_files, &open_files_destroy_func);
 
     intr_set_level (old_level);
 
@@ -543,9 +525,13 @@ process_from_pid(pid_t pid, struct process *parent) {
          e = list_next(e))
     {
         curr = list_entry(e, struct process, child_proc_elem);
+        lock_acquire(&curr->process_lock);
         if (curr->pid == pid) {
             child_proc = curr;
+            lock_release(&curr->process_lock);
             break;
+        } else {
+            lock_release(&curr->process_lock);
         }
     }
 

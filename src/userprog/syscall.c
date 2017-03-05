@@ -8,14 +8,12 @@
 #include <devices/input.h>
 #include <threads/malloc.h>
 #include <lib/kernel/stdio.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
 
 #define BYTE_SIZE 8
-
-#define CONSOLE_WRITE_FD 1
-#define KEYBOARD_READ_FD 0
 
 /*
  * Declares a variable called PARAM of type TYPE. Initialises it to parameter
@@ -44,6 +42,7 @@ static int read_user_word(uint8_t *uaddr);
 static bool put_user(uint8_t *udst, uint8_t byte);
 static inline uint8_t *get_syscall_param_addr(void *esp, unsigned index);
 static inline void fail_if_invalid_user_addr(const void *addr);
+static void fail_if_buffer_invalid(const void *buffer, unsigned int size);
 
 /* Returning values to the user process */
 static inline void return_value(struct intr_frame *f, void *val);
@@ -53,8 +52,6 @@ static inline void return_exit_success(struct intr_frame *f);
 /* Helpers for sys_read(). */
 static void read_from_keyboard(const void *buffer, unsigned size);
 static int read_from_file(int fd, const void *buffer, unsigned size);
-
-void close_syscall(struct open_file_s *open_file, bool remove_fd_entry);
 
 /* Table of syscalls */
 typedef void (syscall_f)(struct intr_frame *);
@@ -252,6 +249,34 @@ get_syscall_param_addr(void *esp, unsigned index) {
 }
 
 /*
+ * Fails if the end of the buffer is not within the page.
+ */
+void fail_if_buffer_invalid(const void *buffer, unsigned int size) {
+    size_t into_page = ((size_t) buffer % PGSIZE);
+    size_t left_of_page = PGSIZE - into_page;
+    size_t bytes_checked = 0;
+    while (bytes_checked < size) {
+        fail_if_invalid_user_addr(buffer + bytes_checked);
+
+        if (bytes_checked + PGSIZE > size) {
+            if (size > bytes_checked + left_of_page) {
+                fail_if_invalid_user_addr(buffer + size);
+            }
+            break;
+        } else {
+            bytes_checked += PGSIZE;
+        }
+    }
+}
+
+/*
+ * Generates the next fd for the process.
+ */
+static int generate_fd(struct process *p) {
+    return p->next_fd++;
+}
+
+/*
  * Exits a process -- sets its exit status and then exits the thread
  */
 static void
@@ -305,14 +330,11 @@ static int read_from_file(int fd, const void *buffer, unsigned size) {
         return EXIT_FAILURE;
     }
 
-    // TODO: Should this exit process or return exit failure?
     // Get the open file from the fd
     struct open_file_s *open_file = process_get_open_file_struct((unsigned int) fd);
     if (open_file == NULL) {
-        exit_process(EXIT_FAILURE);
-        NOT_REACHED();
+        return EXIT_FAILURE;
     }
-
 
     // To read from the file, fd needs to exist and be valid.
     struct hash_elem *fd_elem = hash_find(&process_current()->open_files, &open_file->fd_elem);
@@ -333,7 +355,8 @@ static int read_from_file(int fd, const void *buffer, unsigned size) {
 /**************************** System calls ************************************/
 
 static void
-sys_halt(struct intr_frame *f UNUSED) {
+sys_halt(struct intr_frame *f) {
+    ASSERT(f != NULL);
     shutdown_power_off();
 }
 
@@ -348,7 +371,11 @@ sys_exit(struct intr_frame *f) {
 
 static void
 sys_exec(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(const char *, cmd_line, f->esp, 0);
+
+    fail_if_buffer_invalid(cmd_line, (unsigned int) strlen(cmd_line));
 
     tid_t child_tid = process_execute(cmd_line);
 
@@ -371,14 +398,19 @@ sys_exec(struct intr_frame *f) {
 
 static void
 sys_wait(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(tid_t, child, f->esp, 0);
+
     int exit_status = process_wait(child);
+
     return_value(f, &exit_status);
 }
 
-// FIXME: Find and fix this cunt of a concurrency bug.
 static void
 sys_create(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(char *, file_name, f->esp, 0);
     decl_parameter(unsigned int, initial_size, f->esp, 1);
 
@@ -392,7 +424,10 @@ sys_create(struct intr_frame *f) {
     return_value(f, &success);
 }
 
-static void sys_remove(struct intr_frame *f) {
+static void
+sys_remove(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(char *, file_name, f->esp, 0);
 
     bool success = filesys_remove(file_name);
@@ -400,16 +435,10 @@ static void sys_remove(struct intr_frame *f) {
     return_value(f, &success);
 }
 
-// FIXME: Do we need to lock here?
-static int generate_fd(struct process *p) {
-    lock_acquire(&p->process_lock);
-    int fd = p->next_fd++;
-    lock_release(&p->process_lock);
+static void
+sys_open(struct intr_frame *f) {
+    ASSERT(f != NULL);
 
-    return fd;
-}
-
-static void sys_open(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
 
     if (file_name == NULL) {
@@ -446,7 +475,10 @@ static void sys_open(struct intr_frame *f) {
  *
  * Returns the size, in bytes, of the file open as fd.
  */
-static void sys_filesize(struct intr_frame *f) {
+static void
+sys_filesize(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(int, file_name, f->esp, 0);
 
     struct open_file_s *open_file_s = process_get_open_file_struct(file_name);
@@ -463,19 +495,22 @@ static void sys_filesize(struct intr_frame *f) {
  * (due to a condition other than end of file). Fd 0 reads from the keyboard
  * using input_getc(), which can be found in ‘src/devices/input.h’.
  */
-static void sys_read(struct intr_frame *f) {
+static void
+sys_read(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(int, fd, f->esp, 0);
     decl_parameter(const void *, buffer, f->esp, 1);
     decl_parameter(unsigned, size, f->esp, 2);
 
     int bytes_written;
 
-    // TODO: Is this meant to be 1? Factor out into a macro when we know what
-    // TODO:     the name of it should be.
-    // If fd is -1, it means we are trying to read from STDOUT so return error
-    if (fd == -1) {
+    fail_if_buffer_invalid(buffer, size);
+
+    // If fd is 1, it means we are trying to read from STDOUT so return error
+    if (fd == STDOUT_FILENO) {
         bytes_written = EXIT_FAILURE;
-    } else if (fd == KEYBOARD_READ_FD) {
+    } else if (fd == STDIN_FILENO) {
         read_from_keyboard(buffer, size);
         bytes_written = size;
     } else {
@@ -501,9 +536,10 @@ sys_write(struct intr_frame *f) {
 
     unsigned bytes_written = 0;
 
+    fail_if_buffer_invalid(buffer, size);
+
     // Write to console.
-    if (fd == CONSOLE_WRITE_FD) {
-        // TODO: Break up the buffer if size more than a few hundred bytes
+    if (fd == STDOUT_FILENO) {
         putbuf(buffer, size);
         bytes_written = size;
     } else {
@@ -524,6 +560,8 @@ sys_write(struct intr_frame *f) {
 /* void seek (int fd, unsigned position) */
 static void
 sys_seek(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(int, fd, f->esp, 0);
     decl_parameter(unsigned, position, f->esp, 1);
 
@@ -536,7 +574,10 @@ sys_seek(struct intr_frame *f) {
 /*unsigned tell (int fd)
 Returns the position of the next byte to be read or written in open file fd, expressed in bytes
 from the beginning of the file.*/
-static void sys_tell(struct intr_frame *f) {
+static void
+sys_tell(struct intr_frame *f) {
+    ASSERT(f != NULL);
+
     decl_parameter(int, fd, f->esp, 0);
 
     unsigned position = 0;
@@ -554,28 +595,22 @@ static void sys_tell(struct intr_frame *f) {
  * void close (int fd)
 Closes file descriptor fd. Exiting or terminating a process implicitly closes all its open file
 descriptors, as if by calling this function for each one.*/
-static void sys_close(struct intr_frame *f) {
+static void
+sys_close(struct intr_frame *f) {
+    ASSERT(f != NULL);
 
     decl_parameter(int, fd, f->esp, 0);
 
-//    printf("---DEBUG: Closing file: %i", fd);
-
     struct open_file_s *open_file = process_get_open_file_struct(fd);
 
-    close_syscall(open_file, true);
-}
-
-void
-close_syscall(struct open_file_s *open_file, bool remove_fd_entry) {
     // If the file is found, close it
     if (open_file != NULL) {
         file_close (open_file->file);
 
         // Remove the entry from the open_files hash table.
-        if (remove_fd_entry) {
-            hash_delete (&thread_current()->process->open_files,
-                         &open_file->fd_elem);
-        }
+        hash_delete (&thread_current()->process->open_files,
+                     &open_file->fd_elem);
+
         free (open_file);
     }
 }
