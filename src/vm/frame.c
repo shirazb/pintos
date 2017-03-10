@@ -91,8 +91,8 @@ unsigned frame_hash_func(const struct hash_elem *e, void *aux UNUSED) {
 }
 
 bool frame_less_func(const struct hash_elem *a,
-                             const struct hash_elem *b,
-                             void *aux) {
+                     const struct hash_elem *b,
+                     void *aux UNUSED) {
     struct frame_info *e1 = hash_entry(a, struct frame_info, hash_elem);
     struct frame_info *e2 = hash_entry(b, struct frame_info, hash_elem);
 
