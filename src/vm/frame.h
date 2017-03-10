@@ -19,6 +19,7 @@ struct frame_table {
 
 void frame_table_init();
 void frame_table_deinit();
+void frame_table_evict();
 
 
 #endif //PINTOS_36_FRAME_H
