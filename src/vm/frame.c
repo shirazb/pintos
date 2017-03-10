@@ -17,7 +17,7 @@ void frame_table_init() {
     table.used_frames = bitmap_create(TABLE_SIZE);
     rw_lock_init(&frame_table_rw_lock);
     // TODO: DO
-    hash_init(&table.frames, NULL, NULL, NULL);
+    hash_init(&table.frames, frame_hash_func, frame_less_func, NULL);
 }
 
 void frame_table_deinit() {
@@ -84,11 +84,17 @@ void frame_free_page(tid_t tid, size_t page_num) {
 
 // frame hashing function using the process ID (tid) and the page number
 unsigned frame_hash_func(const struct hash_elem *e, void *aux UNUSED) {
-    return NULL;
+    struct frame_info *entry = hash_entry(e, struct frame_info, hash_elem);
+    tid_t tid = entry->tid;
+    unsigned page_num = (unsigned) entry->page_num;
+    return (tid + page_num) * (tid + page_num + 1) / 2 + tid;
 }
 
 bool frame_less_func(const struct hash_elem *a,
                              const struct hash_elem *b,
                              void *aux) {
-    return false;
+    struct frame_info *e1 = hash_entry(a, struct frame_info, hash_elem);
+    struct frame_info *e2 = hash_entry(b, struct frame_info, hash_elem);
+
+    return e1->index < e2->index;
 }
