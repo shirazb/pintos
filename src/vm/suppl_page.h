@@ -16,6 +16,7 @@ struct page_num_entry {
 };
 
 void sp_table_init(struct sp_table *sp_table);
+void sp_table_destroy(struct sp_table *sp_table);
 
 size_t get_page_num(struct sp_table *page_table, void *addr);
 

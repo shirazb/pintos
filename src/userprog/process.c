@@ -3,20 +3,15 @@
 #include <inttypes.h>
 #include <round.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <threads/malloc.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
-#include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/flags.h"
-#include "threads/init.h"
-#include "threads/interrupt.h"
 #include "threads/palloc.h"
-#include "threads/thread.h"
 #include "threads/vaddr.h"
 
 #define MAX_ARG_NUM 35
@@ -97,6 +92,7 @@ init_process(struct process *parent, char *file_name) {
     p->next_fd = LOWEST_FILE_FD;
     p->loaded_correctly = false;
     sema_init(&p->has_loaded, 0);
+    sp_table_init(&p->sp_table);
 
     // Will be set in load.
     p->executable = NULL;
@@ -365,7 +361,7 @@ parse_args(char *file_name, char **argv) {
 int
 process_wait(tid_t child_tid) {
     struct process *p = process_current();
-    struct process *child_proc = process_from_pid(child_tid, p);
+    struct process *child_proc = child_process_from_pid(child_tid, p);
 
     // If child not found or already waited on or was killed by kernel, fail.
     if (child_proc == NULL) {
@@ -398,11 +394,12 @@ open_files_destroy_func (struct hash_elem *e, void *aux UNUSED) {
     free (open_file);
 }
 
-// TODO: Free open file memory in the hash map.
 static void
 destroy_process(struct process *p) {
     ASSERT(p != NULL);
     enum intr_level old_level = intr_disable();
+
+    sp_table_destroy(&p->sp_table);
 
     hash_destroy(&p->open_files, &open_files_destroy_func);
     if (p->pid != TEST_PROC_PID) {
@@ -515,7 +512,7 @@ notify_child_of_exit(struct process *p) {
  * Looks up a process from the parent's list of children by PID.
  */
 struct process *
-process_from_pid(pid_t pid, struct process *parent) {
+child_process_from_pid(pid_t pid, struct process *parent) {
     lock_acquire(&parent->process_lock);
 
     struct process *child_proc = NULL;

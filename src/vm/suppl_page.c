@@ -9,6 +9,10 @@ void sp_table_init(struct sp_table *sp_table) {
     hash_init(&sp_table->pages, page_num_hash_func, page_num_less_func, NULL);
 }
 
+void sp_table_destroy(struct sp_table *sp_table) {
+    //TODO
+}
+
 size_t get_page_num(struct sp_table *page_table, void *addr) {
 
     // pages.get(addr)

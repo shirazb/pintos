@@ -3,6 +3,7 @@
 
 #include "threads/thread.h"
 #include "hash.h"
+#include "vm/suppl_page.h"
 
 #define EXIT_FAILURE -1
 #define EXIT_SUCCESS 0
@@ -38,6 +39,7 @@ struct process {
     struct list children;              /* List<struct thread *> of child processes. */
     struct lock process_lock;          /* Locks the whole process struct in order to avoid race conditions. */
     struct list_elem child_proc_elem;  /* To put in list of parent's children. */
+    struct sp_table sp_table;  /* Supplemental page table used to store information about pages for virtual memory*/
 };
 
 tid_t process_execute (const char *file_name);
@@ -45,7 +47,7 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (void);
 struct process *process_current(void);
-struct process *process_from_pid(pid_t pid, struct process *parent);
+struct process *child_process_from_pid(pid_t pid, struct process *parent);
 
 struct file *process_get_open_file(int fd);
 struct open_file_s *process_get_open_file_struct(int fd);

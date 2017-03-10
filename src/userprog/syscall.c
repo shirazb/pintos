@@ -7,7 +7,6 @@
 #include <filesys/file.h>
 #include <devices/input.h>
 #include <threads/malloc.h>
-#include <lib/kernel/stdio.h>
 #include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
@@ -386,7 +385,7 @@ sys_exec(struct intr_frame *f) {
     }
 
     // Get the child process struct.
-    struct process *child = process_from_pid(child_tid, process_current());
+    struct process *child = child_process_from_pid(child_tid, process_current());
     ASSERT(child != NULL);
 
     // Wait for program to be loaded. If loaded correctly, return -1.
