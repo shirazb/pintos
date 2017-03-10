@@ -7,13 +7,13 @@
 
 #define NUM_FRAMES ((2 << 21) - 1)
 
-struct page_info {
-    tid_t tid[NUM_FRAMES];
+struct frame_info {
+    tid_t tid;
     int page_num;
 };
 
 struct frame_table {
-    struct page_info
+    struct frame_info frames[NUM_FRAMES];
     struct bitmap *used_frames;
 };
 
