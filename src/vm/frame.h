@@ -8,9 +8,11 @@ struct frame {
     void *kpage;                    /* Kernel page. */
     void *upage;                    /* User page that maps to the kernel page. */
     struct thread *thread_used_by;  /* Tgread that owns the user page. */
-    struct hash_elem ft_elem;          /* To put in the frame table. */
+    struct hash_elem hash_elem;          /* To put in the frame table. */
 };
 
+
+void ft_init(void);
 struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage); // return an unused frame, NULL if no unused frame exists.
 struct frame *ft_evict_frame(void);  // pick a frame to evict, remove it from FT and return it.
 

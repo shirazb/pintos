@@ -2,6 +2,8 @@
 #include <threads/palloc.h>
 #include <lib/debug.h>
 #include <threads/synch.h>
+#include <threads/thread.h>
+#include <userprog/process.h>
 #include "frame.h"
 
 static void lock_vm(void);
@@ -41,5 +43,8 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
 
         ASSERT(free_frame != NULL);
     }
+
+    sp_add_frame(&process_current()->sp_table, free_frame->kpage);
+
     return free_frame->kpage;
 }

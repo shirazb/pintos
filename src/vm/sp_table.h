@@ -6,6 +6,7 @@
 #include <hash.h>
 
 struct sp_table {
+    struct lock lock;
     struct hash page_locs; // map<*u_page, *user_page_location>
 };
 
@@ -22,5 +23,6 @@ enum location_type {
 };
 
 void sp_table_init(struct sp_table *sp_table);
+void sp_add_frame(struct sp_table *sp_table, void *kpage);
 
 #endif //PINTOS_36_SUPPL_PAGE_H
