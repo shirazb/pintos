@@ -5,13 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <threads/malloc.h>
+#include <vm/vm.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "threads/flags.h"
-#include "threads/palloc.h"
 #include "threads/vaddr.h"
 
 #define MAX_ARG_NUM 35
@@ -817,21 +817,21 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
         /* Get a page of memory. */
-        uint8_t *kpage = palloc_get_page(PAL_USER);
+        uint8_t *kpage = vm_alloc_user_page(PAL_USER, upage);
         if (kpage == NULL) {
             return false;
         }
 
         /* Load this page. */
         if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
-            palloc_free_page(kpage);
+            vm_free_user_page(kpage);
             return false;
         }
         memset(kpage + page_read_bytes, 0, page_zero_bytes);
 
         /* Add the page to the process's address space. */
         if (!install_page(upage, kpage, writable)) {
-            palloc_free_page(kpage);
+            vm_free_user_page(kpage);
             return false;
         }
 
@@ -850,13 +850,14 @@ setup_stack(void **esp) {
     uint8_t *kpage;
     bool success = false;
 
-    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+    uint8_t *upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+    kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
     if (kpage != NULL) {
-        success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+        success = install_page(upage, kpage, true);
         if (success) {
             *esp = PHYS_BASE - 12;
         } else {
-            palloc_free_page(kpage);
+            vm_free_user_page(kpage);
         }
     }
     return success;
