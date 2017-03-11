@@ -1,34 +1,17 @@
 #ifndef PINTOS_36_FRAME_H
 #define PINTOS_36_FRAME_H
 
-#include <threads/palloc.h>
-#include "lib/kernel/hash.h"
-#include "lib/kernel/bitmap.h"
-#include "threads/thread.h"
+#include <hash.h>
 
-#define NUM_FRAMES ((2 << 21) - 1)
-#define TABLE_SIZE (4 << 20)
-
-struct frame_info {
-    tid_t pid;
-    void * user_frame;
-    size_t index;
-    struct hash_elem hash_elem;
+struct frame {
+    void *kpage;                    /* Kernel page. */
+    void *upage;                    /* User page that maps to the kernel page. */
+    struct thread *thread_used_by;  /* Tgread that owns the user page. */
+    struct hash_elem ft_elem;          /* To put in the frame table. */
 };
 
-struct frame_table {
-    struct hash frames; // Map<frame_index, frame_info>
-    struct bitmap *used_frames;
-};
-
-// TODO: make private?
-void frame_table_init();
-void frame_table_destroy();
-void frame_table_evict();
-
-
-void * frame_alloc_page(enum palloc_flags flags);
-void frame_free_page(void *addr, struct process *p);
+struct frame *ft_find_free_frame(void); // return an unused frame, NULL if no unused frame exists.
+struct frame *ft_evict_frame(void);  // pick a frame to evict, remove it from FT and return it.
 
 
 #endif //PINTOS_36_FRAME_H

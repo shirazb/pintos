@@ -3,7 +3,7 @@
 
 #include "threads/thread.h"
 #include "hash.h"
-#include "vm/suppl_page.h"
+#include "vm/sp_table.h"
 
 #define EXIT_FAILURE -1
 #define EXIT_SUCCESS 0
