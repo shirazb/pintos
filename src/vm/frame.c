@@ -12,7 +12,6 @@ static void unlock_ft(void);
 
 static hash_hash_func frame_hash_func;
 static hash_less_func frame_less_func;
-static hash_action_func frame_destroy;
 
 static struct frame_table {
     struct lock lock;
@@ -86,6 +85,10 @@ void ft_remove(struct frame *frame) {
     free(frame);
 }
 
+struct frame *ft_evict_frame(void) {
+    return NULL;
+}
+
 unsigned frame_hash_func(const struct hash_elem *e, void *aux UNUSED) {
     struct frame *frame = hash_entry(e, struct frame, hash_elem);
     return (unsigned) frame->kpage;
@@ -97,6 +100,3 @@ bool frame_less_func(const struct hash_elem *a, const struct hash_elem *b, void 
     return f1->kpage < f2->kpage;
 }
 
-void frame_destroy(struct hash_elem *e, void *aux) {
-    //TODO
-}

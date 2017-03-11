@@ -10,16 +10,16 @@ struct sp_table {
     struct hash page_locs; // map<*upage, *user_page_location>
 };
 
-struct user_page_location {
-    void *location;
-    enum location_type location_type;
-    struct hash_elem hash_elem;
-};
-
 enum location_type {
     FRAME,
     SWAP,
     ZERO
+};
+
+struct user_page_location {
+    void *location;
+    enum location_type location_type;
+    struct hash_elem hash_elem;
 };
 
 void sp_table_init(struct sp_table *sp_table);

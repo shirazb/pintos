@@ -3,7 +3,7 @@
 
 #include <threads/palloc.h>
 
-
+// TODO: should we deinit our VM?
 
 void vm_init(void);
 void * vm_alloc_user_page(enum palloc_flags flags, void *upage);
