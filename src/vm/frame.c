@@ -12,10 +12,11 @@ static void unlock_ft(void);
 
 static hash_hash_func frame_hash_func;
 static hash_less_func frame_less_func;
+static hash_action_func frame_destroy;
 
 static struct frame_table {
     struct lock lock;
-    struct hash table; // Map<*k_page, *u_page>
+    struct hash table; // Map<*k_page, *frame>
     struct bitmap *used_frames;
 };
 
@@ -29,9 +30,9 @@ void unlock_ft(void) {
 }
 
 void ft_init(void) {
-    ft.used_frames = bitmap_create(NUM_FRAMES);
     lock_init(&ft.lock);
     hash_init(&ft.table, frame_hash_func, frame_less_func, NULL);
+    ft.used_frames = bitmap_create(NUM_FRAMES);
 }
 
 struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
@@ -49,9 +50,10 @@ struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
         NOT_REACHED();
     }
 
-    new_frame->thread_used_by = thread_current();
-    new_frame->upage = upage;
+    new_frame->index = frame_index;
     new_frame->kpage = palloc_get_page(flags);
+    new_frame->upage = upage;
+    new_frame->thread_used_by = thread_current();
     ASSERT(new_frame->kpage != NULL);
 
     lock_ft();
@@ -59,6 +61,29 @@ struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
     unlock_ft();
 
     return new_frame;
+}
+
+struct frame *ft_lookup(void *kpage) {
+    struct frame search_frame;
+    search_frame.kpage = kpage;
+
+    lock_ft();
+    struct hash_elem *found_elem = hash_find(&ft.table, &search_frame.hash_elem);
+    unlock_ft();
+    ASSERT(found_elem);
+
+    return hash_entry(found_elem, struct frame, hash_elem);
+
+}
+
+void ft_remove(struct frame *frame) {
+    lock_ft();
+    bitmap_flip(ft.used_frames, frame->index);
+    hash_delete(&ft.table, &frame->hash_elem);
+    unlock_ft();
+
+    palloc_free_page(frame->kpage);
+    free(frame);
 }
 
 unsigned frame_hash_func(const struct hash_elem *e, void *aux UNUSED) {
@@ -70,4 +95,8 @@ bool frame_less_func(const struct hash_elem *a, const struct hash_elem *b, void 
     struct frame *f1 = hash_entry(a, struct frame, hash_elem);
     struct frame *f2 = hash_entry(b, struct frame, hash_elem);
     return f1->kpage < f2->kpage;
+}
+
+void frame_destroy(struct hash_elem *e, void *aux) {
+    //TODO
 }

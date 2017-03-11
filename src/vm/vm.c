@@ -29,7 +29,6 @@ void vm_init(void) {
     ft_init();
 }
 
-// TODO: synchronise
 void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     struct frame *free_frame = ft_init_new_frame(flags, upage);
 
@@ -44,7 +43,17 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
         ASSERT(free_frame != NULL);
     }
 
-    sp_add_frame(&process_current()->sp_table, free_frame->kpage);
+    sp_add_entry(&process_current()->sp_table, free_frame->kpage, FRAME);
 
     return free_frame->kpage;
+}
+
+void *vm_free_user_page(void *kpage) {
+    struct frame *frame = ft_lookup(kpage);
+    struct sp_table *sp_table = &frame->thread_used_by->process->sp_table;
+
+    lock_vm();
+    sp_remove_entry(sp_table, frame->upage, FRAME);
+    ft_remove(frame);
+    unlock_vm();
 }

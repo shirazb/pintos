@@ -18,20 +18,34 @@ void sp_table_destroy(struct sp_table *sp_table) {
     hash_destroy(&sp_table->page_locs, user_location_destroy);
 }
 
-void sp_add_frame(struct sp_table *sp_table, void *kpage) {
+void sp_add_entry(struct sp_table *sp_table, void *kpage, enum location_type location_type) {
     struct user_page_location *location = malloc(sizeof(struct user_page_location));
     if (!location) {
         process_exit();
         NOT_REACHED();
     }
 
-    location->location_type = FRAME;
+    location->location_type = location_type;
     location->location = kpage;
 
     lock_acquire(&sp_table->lock);
     hash_insert(&sp_table->page_locs, &location->hash_elem);
     lock_release(&sp_table->lock);
 }
+
+void sp_remove_entry(struct sp_table *sp_table, void *upage, enum location_type location) {
+    struct user_page_location search_upl;
+    search_upl.location = upage;
+    search_upl.location_type = location;
+
+    lock_acquire(&sp_table->lock);
+    struct hash_elem *e = hash_delete(&sp_table->page_locs, &search_upl.hash_elem);
+    lock_release(&sp_table->lock);
+    ASSERT(e);
+
+    user_location_destroy(e, NULL);
+}
+
 
 unsigned int hash_location(const struct user_page_location *location) {
     return (unsigned) location->location * 31 + location->location_type * 7;
