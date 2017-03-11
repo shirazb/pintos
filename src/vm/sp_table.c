@@ -3,16 +3,19 @@
 
 static hash_hash_func user_location_hash_func;
 static hash_less_func user_location_less_func;
+static hash_action_func user_location_destroy;
 
 unsigned int hash_location(const struct user_page_location *location);
 
 void sp_table_init(struct sp_table *sp_table) {
+    enum intr_level old_level = intr_disable();
     lock_init(&sp_table->lock);
     hash_init(&sp_table->page_locs, user_location_hash_func, user_location_less_func, NULL);
+    intr_set_level(old_level);
 }
 
 void sp_table_destroy(struct sp_table *sp_table) {
-
+    hash_destroy(&sp_table->page_locs, user_location_destroy);
 }
 
 void sp_add_frame(struct sp_table *sp_table, void *kpage) {
@@ -43,4 +46,9 @@ bool user_location_less_func(const struct hash_elem *a, const struct hash_elem *
     struct user_page_location *l1 = hash_entry(a, struct user_page_location, hash_elem);
     struct user_page_location *l2 = hash_entry(b, struct user_page_location, hash_elem);
     return hash_location(l1) < hash_location(l2);
+}
+
+void user_location_destroy(struct hash_elem *e, void *aux UNUSED) {
+    struct user_page_location *location = hash_entry(e, struct user_page_location, hash_elem);
+    free(location);
 }
