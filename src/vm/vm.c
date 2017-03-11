@@ -24,9 +24,9 @@ static void unlock_vm(void) {
     lock_release(&vm_lock);
 }
 
-// TODO: init in init.c
 void vm_init(void) {
     lock_init(&vm_lock);
+    ft_init();
 }
 
 // TODO: synchronise

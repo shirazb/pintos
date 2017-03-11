@@ -1,28 +1,21 @@
 #include "threads/init.h"
 #include <console.h>
-#include <debug.h>
 #include <inttypes.h>
-#include <limits.h>
 #include <random.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <userprog/process.h>
+#include <vm/vm.h>
 #include "devices/kbd.h"
 #include "devices/input.h"
 #include "devices/serial.h"
 #include "devices/shutdown.h"
 #include "devices/timer.h"
-#include "devices/vga.h"
 #include "devices/rtc.h"
-#include "threads/interrupt.h"
-#include "threads/io.h"
 #include "threads/loader.h"
 #include "threads/malloc.h"
-#include "threads/palloc.h"
 #include "threads/pte.h"
-#include "threads/thread.h"
 
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -105,6 +98,10 @@ main(void) {
     palloc_init(user_page_limit);
     malloc_init();
     paging_init();
+
+#ifdef VM
+    vm_init();
+#endif
 
     /* Segmentation. */
 #ifdef USERPROG

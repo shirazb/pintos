@@ -23,6 +23,7 @@ enum location_type {
 };
 
 void sp_table_init(struct sp_table *sp_table);
+void sp_table_destroy(struct sp_table *sp_table);
 void sp_add_frame(struct sp_table *sp_table, void *kpage);
 
 #endif //PINTOS_36_SUPPL_PAGE_H
