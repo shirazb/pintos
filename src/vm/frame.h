@@ -2,6 +2,7 @@
 #define PINTOS_36_FRAME_H
 
 #include <hash.h>
+#include <threads/palloc.h>
 
 struct frame {
     void *kpage;                    /* Kernel page. */
@@ -10,7 +11,7 @@ struct frame {
     struct hash_elem ft_elem;          /* To put in the frame table. */
 };
 
-struct frame *ft_find_free_frame(void); // return an unused frame, NULL if no unused frame exists.
+struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage); // return an unused frame, NULL if no unused frame exists.
 struct frame *ft_evict_frame(void);  // pick a frame to evict, remove it from FT and return it.
 
 
