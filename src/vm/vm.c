@@ -47,19 +47,23 @@ void vm_init(void) {
  * Returns the kernel page that the user page was mapped to.
  */
 void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
+    // Register a new frame in the frame table and return it.
     struct frame *free_frame = ft_init_new_frame(flags, upage);
 
-    // Frame table was full
+    // Frame table was full; perform eviction.
     if (free_frame == NULL) {
         lock_vm();
 
         swap_out_frame();
+
+        // Try again.
         free_frame = ft_init_new_frame(flags, upage);
 
         unlock_vm();
         ASSERT(free_frame != NULL);
     }
 
+    // Add this upage -> kpage mapping to the process' supplementary page table.
     sp_add_entry(&process_current()->sp_table, free_frame->kpage, FRAME);
 
     return free_frame->kpage;
