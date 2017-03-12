@@ -9,6 +9,7 @@
 #include <lib/kernel/bitmap.h>
 #include <threads/synch.h>
 #include <threads/vaddr.h>
+#include <threads/malloc.h>
 
 #define SECTORS_PER_PAGE (PGSIZE / BLOCK_SECTOR_SIZE)
 
@@ -40,9 +41,27 @@ st_init(void) {
     lock_init(&st.lock);
 }
 
+/*
+ * Creates a new entry in the swap table with the given thread and user page.
+ * Copies the given kernel page into a free swap slot.
+ * Returns the index of that swap slot.
+ */
 size_t
 st_new_swap_entry(struct thread *thread_used_by, void *upage, void *kpage) {
-    return 0;
+    struct swap_slot *new_slot = malloc(sizeof(struct swap_slot));
+    ASSERT(new_slot);
+
+    size_t slot_idx = bitmap_scan_and_flip(st.used_slots, 0, 1, false);
+    if (slot_idx == BITMAP_ERROR) {
+        PANIC("Exhausted swap space!");
+    }
+
+    new_slot->thread_used_by = thread_used_by;
+    new_slot->index = slot_idx;
+    new_slot->upage = upage;
+    write_to_swap(new_slot->index, kpage);
+
+    return slot_idx;
 }
 
 

@@ -3,6 +3,7 @@
 
 #include <devices/block.h>
 #include <lib/kernel/hash.h>
+#include <threads/thread.h>
 
 struct swap_slot {
     size_t index;                  /* Index into the swap table. */
