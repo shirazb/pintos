@@ -10,8 +10,8 @@ static void lock_ft(void);
 
 static void unlock_ft(void);
 
-static hash_hash_func frame_hash_func;
-static hash_less_func frame_less_func;
+static hash_hash_func frame_hash;
+static hash_less_func frame_less;
 
 static struct frame_table {
     struct lock lock;
@@ -30,7 +30,7 @@ void unlock_ft(void) {
 
 void ft_init(void) {
     lock_init(&ft.lock);
-    hash_init(&ft.table, frame_hash_func, frame_less_func, NULL);
+    hash_init(&ft.table, frame_hash, frame_less, NULL);
     ft.used_frames = bitmap_create(NUM_FRAMES);
 }
 
@@ -89,12 +89,13 @@ struct frame *ft_evict_frame(void) {
     return NULL;
 }
 
-unsigned frame_hash_func(const struct hash_elem *e, void *aux UNUSED) {
+unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
     struct frame *frame = hash_entry(e, struct frame, hash_elem);
     return (unsigned) frame->kpage;
 }
 
-bool frame_less_func(const struct hash_elem *a, const struct hash_elem *b, void *aux UNUSED) {
+bool frame_less(const struct hash_elem *a, const struct hash_elem *b,
+                void *aux UNUSED) {
     struct frame *f1 = hash_entry(a, struct frame, hash_elem);
     struct frame *f2 = hash_entry(b, struct frame, hash_elem);
     return f1->kpage < f2->kpage;
