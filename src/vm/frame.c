@@ -13,6 +13,8 @@ static void unlock_ft(void);
 static hash_hash_func frame_hash;
 static hash_less_func frame_less;
 
+static struct frame *pick_frame_to_evict(void);
+
 static struct frame_table {
     struct lock lock;
     struct hash table; // Map<*k_page, *frame>
@@ -90,7 +92,21 @@ void ft_destroy(struct frame *frame) {
 }
 
 struct frame *ft_evict_frame(void) {
-    return NULL;
+    struct frame *to_evict = pick_frame_to_evict();
+
+    ft_remove(to_evict);
+    return to_evict;
+}
+
+// TODO: Implement a proper eviction algorithm.
+static struct frame *pick_frame_to_evict(void) {
+    struct hash_iterator it;
+    lock_ft();
+    hash_first(&it, &ft.table);
+    struct hash_elem *e = hash_next(&it);
+    unlock_ft();
+
+    return hash_entry(e, struct frame, hash_elem);
 }
 
 unsigned frame_hash(const struct hash_elem *e, void *aux UNUSED) {
