@@ -23,10 +23,11 @@ static struct swap_table {
 static hash_hash_func swap_slot_hash;
 
 static hash_less_func swap_slot_less;
+
 /* Reading and writing to the swap space. */
 static void write_to_swap(size_t slot_index, void *kpage);
-
 static void read_from_swap(size_t slot_index, void *kpage);
+
 /* The global swap table. */
 static struct swap_table st;
 
@@ -38,6 +39,12 @@ st_init(void) {
     st.used_slots = bitmap_create(num_slots);
     lock_init(&st.lock);
 }
+
+size_t
+st_new_swap_entry(struct thread *thread_used_by, void *upage, void *kpage) {
+    return 0;
+}
+
 
 /*
  * Writes the kpage to the swap slot indexed by the given slot_index.

@@ -46,6 +46,12 @@ void sp_remove_entry(struct sp_table *sp_table, void *upage, enum location_type 
     user_location_destroy(e, NULL);
 }
 
+void sp_update_entry(struct sp_table *sp_table, void *old_location,
+                     enum location_type old_location_type, void *new_location,
+                     enum location_type new_location_type) {
+
+}
+
 
 unsigned int hash_location(const struct user_page_location *location) {
     return (unsigned) location->location * 31 + location->location_type * 7;

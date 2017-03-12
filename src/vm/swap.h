@@ -13,4 +13,6 @@ struct swap_slot {
 
 void st_init(void);
 
+size_t st_new_swap_entry(struct thread *thread_used_by, void *upage, void *kpage);
+
 #endif
