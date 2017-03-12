@@ -19,19 +19,51 @@ static struct swap_table {
     struct lock lock;
 };
 
+/* Swap slot hashing. */
 static hash_hash_func swap_slot_hash;
-static hash_less_func swap_slot_less;
 
+static hash_less_func swap_slot_less;
+/* Reading and writing to the swap space. */
+static void write_to_swap(size_t slot_index, void *kpage);
+
+static void read_from_swap(size_t slot_index, void *kpage);
+/* The global swap table. */
 static struct swap_table st;
 
 void
 st_init(void) {
-    // TODO: Make hash functions.
     hash_init(&st.table, swap_slot_hash, swap_slot_less, NULL);
     st.swap_block = block_get_role(BLOCK_SWAP);
     const size_t num_slots = block_size(st.swap_block) / SECTORS_PER_PAGE;
     st.used_slots = bitmap_create(num_slots);
     lock_init(&st.lock);
+}
+
+/*
+ * Writes the kpage to the swap slot indexed by the given slot_index.
+ */
+static void
+write_to_swap(size_t slot_index, void *kpage) {
+    ASSERT(kpage != NULL);
+
+    for (int i = 0; i < SECTORS_PER_PAGE; i++) {
+        block_sector_t sector = (block_sector_t) (slot_index * SECTORS_PER_PAGE + i);
+        block_write(st.swap_block, sector, kpage);
+    }
+}
+
+/*
+ * Reads the the swap slot indexed by the given slot_index into the given
+ * kernel page.
+ */
+static void
+read_from_swap(size_t slot_index, void *kpage) {
+    ASSERT(kpage != NULL);
+
+    for (int i = 0; i < SECTORS_PER_PAGE; i++) {
+        block_sector_t sector = (block_sector_t) (slot_index * SECTORS_PER_PAGE + i);
+        block_read(st.swap_block, sector, kpage);
+    }
 }
 
 unsigned
