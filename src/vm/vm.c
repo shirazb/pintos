@@ -48,7 +48,7 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     return free_frame->kpage;
 }
 
-void *vm_free_user_page(void *kpage) {
+void vm_free_user_page(void *kpage) {
     struct frame *frame = ft_lookup(kpage);
     struct sp_table *sp_table = &frame->thread_used_by->process->sp_table;
 
