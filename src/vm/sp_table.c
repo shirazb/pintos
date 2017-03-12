@@ -46,10 +46,32 @@ void sp_remove_entry(struct sp_table *sp_table, void *upage, enum location_type 
     user_location_destroy(e, NULL);
 }
 
-void sp_update_entry(struct sp_table *sp_table, void *old_location,
-                     enum location_type old_location_type, void *new_location,
-                     enum location_type new_location_type) {
-    
+void sp_update_entry(
+        struct sp_table *sp_table,
+        void *old_location,
+        enum location_type old_location_type,
+        void *new_location,
+        enum location_type new_location_type
+) {
+    struct user_page_location search_upl;
+    search_upl.location = old_location;
+    search_upl.location_type = old_location_type;
+
+    lock_acquire(&sp_table->lock);
+    struct hash_elem *found_elem = hash_find(&sp_table->page_locs,
+                                             &search_upl.hash_elem);
+    ASSERT(found_elem);
+
+    struct user_page_location *upl = hash_entry(
+            found_elem,
+            struct user_page_location,
+            hash_elem
+    );
+
+    upl->location = new_location;
+    upl->location_type = new_location_type;
+
+    lock_release(&sp_table->lock);
 }
 
 
