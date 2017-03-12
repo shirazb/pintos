@@ -49,7 +49,7 @@ void sp_remove_entry(struct sp_table *sp_table, void *upage, enum location_type 
 void sp_update_entry(struct sp_table *sp_table, void *old_location,
                      enum location_type old_location_type, void *new_location,
                      enum location_type new_location_type) {
-
+    
 }
 
 

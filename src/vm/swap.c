@@ -22,12 +22,15 @@ static struct swap_table {
 
 /* Swap slot hashing. */
 static hash_hash_func swap_slot_hash;
-
 static hash_less_func swap_slot_less;
 
 /* Reading and writing to the swap space. */
 static void write_to_swap(size_t slot_index, void *kpage);
 static void read_from_swap(size_t slot_index, void *kpage);
+
+/* Synchronisation of swap table. */
+static void lock_st(void);
+static void unlock_st(void);
 
 /* The global swap table. */
 static struct swap_table st;
@@ -41,6 +44,16 @@ st_init(void) {
     lock_init(&st.lock);
 }
 
+void
+lock_st(void) {
+    lock_acquire(&st.lock);
+}
+
+void
+unlock_st(void) {
+    lock_release(&st.lock);
+}
+
 /*
  * Creates a new entry in the swap table with the given thread and user page.
  * Copies the given kernel page into a free swap slot.
@@ -51,10 +64,12 @@ st_new_swap_entry(struct thread *thread_used_by, void *upage, void *kpage) {
     struct swap_slot *new_slot = malloc(sizeof(struct swap_slot));
     ASSERT(new_slot);
 
+    lock_st();
     size_t slot_idx = bitmap_scan_and_flip(st.used_slots, 0, 1, false);
     if (slot_idx == BITMAP_ERROR) {
         PANIC("Exhausted swap space!");
     }
+    unlock_st();
 
     new_slot->thread_used_by = thread_used_by;
     new_slot->index = slot_idx;
