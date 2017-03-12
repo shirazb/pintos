@@ -6,6 +6,7 @@
 #include <vm/frame.h>
 #include <vm/swap.h>
 #include <userprog/pagedir.h>
+#include <threads/malloc.h>
 #include "vm.h"
 
 /* Synchronisation across the entire vm interface. */
@@ -100,6 +101,8 @@ void swap_out_frame() {
                 thread_of_evicted_frame->pagedir,
                 evicted_frame->upage
     );
+
+    free(evicted_frame);
 }
 
 void vm_free_user_page(void *kpage) {
@@ -108,7 +111,7 @@ void vm_free_user_page(void *kpage) {
 
     lock_vm();
     sp_remove_entry(sp_table, frame->upage, FRAME);
-    ft_remove(frame);
+    ft_destroy(frame);
     unlock_vm();
 }
 

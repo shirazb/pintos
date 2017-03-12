@@ -82,6 +82,10 @@ void ft_remove(struct frame *frame) {
     unlock_ft();
 
     palloc_free_page(frame->kpage);
+}
+
+void ft_destroy(struct frame *frame) {
+    ft_remove(frame);
     free(frame);
 }
 

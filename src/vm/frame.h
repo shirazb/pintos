@@ -18,6 +18,6 @@ struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage); // return
 struct frame *ft_evict_frame(void);  // pick a frame to evict, remove it from FT and return it.
 struct frame *ft_lookup(void *kpage);
 void ft_remove(struct frame *frame);
-
+void ft_destroy(struct frame *frame);
 
 #endif //PINTOS_36_FRAME_H
