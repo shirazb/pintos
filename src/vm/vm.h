@@ -3,10 +3,11 @@
 
 #include <threads/palloc.h>
 
-// TODO: should we deinit our VM?
 
 void vm_init(void);
 void * vm_alloc_user_page(enum palloc_flags flags, void *upage);
 void vm_free_user_page(void *kpage);
+void * vm_handle_page_fault(void *upage);
+
 
 #endif //PINTOS_VM_H

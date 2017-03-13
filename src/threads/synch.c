@@ -386,7 +386,7 @@ void rec_lock_init(struct rec_lock *rec_lock) {
     intr_set_level(old_level);
 }
 
-void rec_lock_aquire(struct rec_lock *rec_lock) {
+void rec_lock_acquire(struct rec_lock *rec_lock) {
     enum intr_level old_level = intr_disable();
     if (rec_lock->num_acquires == 0) {
         lock_acquire(&rec_lock->lock);

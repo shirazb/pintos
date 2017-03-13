@@ -14,20 +14,20 @@ static void lock_vm(void);
 static void unlock_vm(void);
 
 void swap_out_frame();
-static struct lock vm_lock;
+static struct rec_lock vm_lock;
 
 /*
  * Locks the vm.
  */
 static void lock_vm(void) {
-    lock_acquire(&vm_lock);
+    rec_lock_acquire(&vm_lock);
 }
 
 /*
  * Unlocks the vm.
  */
 static void unlock_vm(void) {
-    lock_release(&vm_lock);
+    rec_lock_release(&vm_lock);
 }
 /*
  * Initialises the vm.
@@ -35,7 +35,7 @@ static void unlock_vm(void) {
  * This includes initialising the vm lock, the swap table, and the frame table.
  */
 void vm_init(void) {
-    lock_init(&vm_lock);
+    rec_lock_init(&vm_lock);
     ft_init();
     st_init();
 }
@@ -71,6 +71,63 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     return free_frame->kpage;
 }
 
+void * vm_handle_page_fault(void *upage) {
+
+    struct sp_table *sp_table = &process_current()->sp_table;
+    struct user_page_location *upl = sp_lookup(sp_table, upage);
+
+    if (!upl) {
+        process_exit();
+        NOT_REACHED();
+    }
+
+    lock_vm();
+
+    void *kpage;
+    switch (upl->location_type) {
+        case SWAP:
+            kpage = vm_alloc_user_page(PAL_USER, upage);
+            st_swap_into_kpage((size_t) upl->location, kpage);
+            sp_update_entry(sp_table, upage, kpage, FRAME);
+            break;
+        case ZERO:
+            //TODO
+            break;
+        case FRAME:
+        default:
+            ASSERT(false);
+    }
+
+    unlock_vm();
+
+    return kpage;
+
+
+
+    /* User process page fault. */
+    // TODO: Synchronise
+    /*
+     get current process->sp_table
+     upl = look up fault_addr in sp_table
+     if (upl == NULL) {
+        process_exit();
+        NOT_REACHED();
+     }
+     ASSERT(upl->location_type != FRAME);
+     // TODO: vm_page_fault[upl->location_type](upl);
+     void *kpage;
+     switch (upl->location_type)
+     case SWAP:
+         kpage = vm_alloc_user_page(PAL_USER);
+         now we need to swap in to that frame.
+         vm_swap_in(sp_table, kpage, upl->location);
+         pagedir_set_page(pd, upage, kpage);
+
+     case ZERO: fuck knows? break;
+         kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO);
+    */
+}
+
 /*
  * Swaps out a frame from physical memory to the swap space.
  *
@@ -82,10 +139,10 @@ void swap_out_frame() {
     struct frame *evicted_frame = ft_evict_frame();
     ASSERT(evicted_frame != NULL);
 
-    size_t swap_slot = st_new_swap_entry(
-                evicted_frame->thread_used_by,
-                evicted_frame->upage,
-                evicted_frame->kpage
+    size_t swap_slot = st_swap_out_kpage(
+            evicted_frame->thread_used_by,
+            evicted_frame->upage,
+            evicted_frame->kpage
     );
 
     struct thread *thread_of_evicted_frame = evicted_frame->thread_used_by;

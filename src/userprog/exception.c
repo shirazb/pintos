@@ -1,10 +1,12 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <vm/vm.h>
 #include "userprog/gdt.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
+#include "pagedir.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -166,28 +168,8 @@ page_fault(struct intr_frame *f) {
            write ? "writing" : "reading",
            user ? "user" : "kernel");
 
-    /* User process page fault. */
-    // TODO: Synchronise
-    /*
-     get current process->sp_table
-     upl = look up fault_addr in sp_table
-     if (upl == NULL) {
-        process_exit();
-        NOT_REACHED();
-     }
-     ASSERT(upl->location_type != FRAME);
-     // TODO: vm_page_fault[upl->location_type](upl);
-     void *kpage;
-     switch (upl->location_type)
-     case SWAP:
-         kpage = vm_alloc_user_page(PAL_USER);
-         now we need to swap in to that frame.
-         vm_swap_in(sp_table, kpage, upl->location);
-         pagedir_set_page(pd, upage, kpage);
-
-     case ZERO: fuck knows? break;
-         kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO);
-    */
+    void *kpage = vm_handle_page_fault(fault_addr);
+    pagedir_set_page(thread_current()->pagedir, fault_addr, kpage, true);
 }
 
 static void

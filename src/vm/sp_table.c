@@ -74,6 +74,10 @@ void sp_update_entry(
     lock_release(&sp_table->lock);
 }
 
+struct user_page_location *sp_lookup(struct sp_table *sp_table, void *upage) {
+    return NULL;
+}
+
 unsigned user_location_hash_func(const struct hash_elem *e, void *aux UNUSED) {
     struct user_page_location *location = hash_entry(
             e,

@@ -67,7 +67,7 @@ struct rec_lock {
 };
 
 void rec_lock_init(struct rec_lock *rec_lock);
-void rec_lock_aquire(struct rec_lock *rec_lock);
+void rec_lock_acquire(struct rec_lock *rec_lock);
 void rec_lock_release(struct rec_lock *rec_lock);
 
 /* Condition variable. */

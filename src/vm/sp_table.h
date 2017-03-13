@@ -28,5 +28,6 @@ void sp_table_destroy(struct sp_table *sp_table);
 void sp_add_entry(struct sp_table *sp_table, void *upage, void *location, enum location_type location_type);
 void sp_remove_entry(struct sp_table *sp_table, void *upage);
 void sp_update_entry(struct sp_table *sp_table, void *upage, void *new_location, enum location_type new_location_type);
+struct user_page_location * sp_lookup(struct sp_table *sp_table, void *upage);
 
 #endif //PINTOS_36_SUPPL_PAGE_H
