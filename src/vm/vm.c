@@ -65,7 +65,7 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     }
 
     // Add this upage -> kpage mapping to the process' supplementary page table.
-    sp_add_entry(&process_current()->sp_table, free_frame->kpage, FRAME);
+    sp_add_entry(&process_current()->sp_table, upage, free_frame->kpage, FRAME);
 
     return free_frame->kpage;
 }
@@ -91,8 +91,7 @@ void swap_out_frame() {
 
     sp_update_entry(
                 &thread_of_evicted_frame->process->sp_table,
-                evicted_frame->kpage,
-                FRAME,
+                evicted_frame->upage,
                 (void *) swap_slot,
                 SWAP
     );
@@ -110,7 +109,7 @@ void vm_free_user_page(void *kpage) {
     struct sp_table *sp_table = &frame->thread_used_by->process->sp_table;
 
     lock_vm();
-    sp_remove_entry(sp_table, frame->upage, FRAME);
+    sp_remove_entry(sp_table, frame->upage);
     ft_destroy(frame);
     unlock_vm();
 }

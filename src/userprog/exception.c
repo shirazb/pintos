@@ -148,13 +148,18 @@ page_fault(struct intr_frame *f) {
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
+    /* Kernel page faulted reading user memory. */
     if (!user) {
         // Set eax to 0xffffffff and copies the old value into eip.
         f->eip = * (void (**)(void)) &f->eax;
         f->eax = 0xffffffff;
         kill_process();
-//        return;
+        NOT_REACHED();
     }
+
+    /* User process page fault. */
+    // get current process->sp_table
+    // look up
 
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
