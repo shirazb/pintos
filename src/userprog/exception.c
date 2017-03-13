@@ -157,10 +157,6 @@ page_fault(struct intr_frame *f) {
         NOT_REACHED();
     }
 
-    /* User process page fault. */
-    // get current process->sp_table
-    // look up
-
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
@@ -169,7 +165,29 @@ page_fault(struct intr_frame *f) {
            not_present ? "not present" : "rights violation",
            write ? "writing" : "reading",
            user ? "user" : "kernel");
-    kill(f);
+
+    /* User process page fault. */
+    // TODO: Synchronise
+    /*
+     get current process->sp_table
+     upl = look up fault_addr in sp_table
+     if (upl == NULL) {
+        process_exit();
+        NOT_REACHED();
+     }
+     ASSERT(upl->location_type != FRAME);
+     // TODO: vm_page_fault[upl->location_type](upl);
+     void *kpage;
+     switch (upl->location_type)
+     case SWAP:
+         kpage = vm_alloc_user_page(PAL_USER);
+         now we need to swap in to that frame.
+         vm_swap_in(sp_table, kpage, upl->location);
+         pagedir_set_page(pd, upage, kpage);
+
+     case ZERO: fuck knows? break;
+         kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO);
+    */
 }
 
 static void

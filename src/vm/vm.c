@@ -47,6 +47,7 @@ void vm_init(void) {
  *
  * Returns the kernel page that the user page was mapped to.
  */
+// TODO: Handle PAL_ZERO case
 void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     // Register a new frame in the frame table and return it.
     struct frame *free_frame = ft_init_new_frame(flags, upage);
