@@ -92,10 +92,14 @@ void * vm_handle_page_fault(void *upage) {
             break;
         case ZERO:
             //TODO
+            kpage = (void *) -1;
             break;
         case FRAME:
+            PANIC("vm_handle_page_fault(): Page faulted when sp table says "
+                          "upage maps to a frame.");
         default:
-            ASSERT(false);
+            PANIC("vm_handle_page_fault(): User page location has unknown "
+                          "location_type: %i", upl->location_type);
     }
 
     unlock_vm();

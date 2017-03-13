@@ -55,12 +55,38 @@ unlock_st(void) {
 }
 
 /*
+ * Move the page stored in the swap slot of the given index into the given
+ * kernel page. Updates the swap table to reflect this change.
+ */
+void
+st_swap_into_kpage(size_t index, void *kpage) {
+    lock_st();
+
+    // Reset this swap slot's bit in the bitmap.
+    bitmap_flip(st.used_slots, index);
+    ASSERT(bitmap_test(st.used_slots, index) == 0);
+
+    // Remove corresponding swap entry from hash table.
+    struct swap_slot to_delete;
+    to_delete.index = index;
+    struct hash_elem *deleted = hash_delete(
+            &st.table,
+            &to_delete.st_elem
+    );
+    ASSERT(deleted != NULL);
+
+    unlock_st();
+
+    read_from_swap(index, kpage);
+}
+
+/*
  * Creates a new entry in the swap table with the given thread and user page.
  * Copies the given kernel page into a free swap slot.
  * Returns the index of that swap slot.
  */
 size_t
-st_new_swap_entry(struct thread *thread_used_by, void *upage, void *kpage) {
+st_swap_out_kpage(struct thread *thread_used_by, void *upage, void *kpage) {
     struct swap_slot *new_slot = malloc(sizeof(struct swap_slot));
     ASSERT(new_slot);
 
