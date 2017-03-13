@@ -99,8 +99,7 @@ void *vm_handle_page_fault(void *upage) {
             sp_update_entry(sp_table, upage, kpage, FRAME);
             break;
         case ZERO:
-            //TODO
-            kpage = (void *) -1;
+            kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
             break;
         case FRAME:
             PANIC("vm_handle_page_fault(): Page faulted when sp table says "
