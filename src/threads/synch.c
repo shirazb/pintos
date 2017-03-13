@@ -28,7 +28,6 @@
 
 #include "threads/synch.h"
 #include <stdio.h>
-#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
@@ -378,4 +377,31 @@ void
 w_lock_release(struct read_write_lock *rw_lock) {
     ASSERT(rw_lock != NULL);
     sema_up(&rw_lock->resource_access);
+}
+
+void rec_lock_init(struct rec_lock *rec_lock) {
+    enum intr_level old_level = intr_disable();
+    lock_init(&rec_lock->lock);
+    rec_lock->num_acquires = 0;
+    intr_set_level(old_level);
+}
+
+void rec_lock_aquire(struct rec_lock *rec_lock) {
+    enum intr_level old_level = intr_disable();
+    if (rec_lock->num_acquires == 0) {
+        lock_acquire(&rec_lock->lock);
+    }
+    rec_lock->num_acquires++;
+    intr_set_level(old_level);
+}
+
+void rec_lock_release(struct rec_lock *rec_lock) {
+    ASSERT(lock_held_by_current_thread(&rec_lock->lock));
+    ASSERT(rec_lock->num_acquires > 0);
+    enum intr_level old_level = intr_disable();
+    rec_lock->num_acquires--;
+    if (rec_lock->num_acquires == 0) {
+        lock_release(&rec_lock->lock);
+    }
+    intr_set_level(old_level);
 }

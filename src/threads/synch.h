@@ -57,6 +57,19 @@ void w_lock_acquire(struct read_write_lock *rw_lock);
 
 void w_lock_release(struct read_write_lock *rw_lock);
 
+/*
+ * recursive lock for vm.
+ */
+
+struct rec_lock {
+    unsigned num_acquires;
+    struct lock lock;
+};
+
+void rec_lock_init(struct rec_lock *rec_lock);
+void rec_lock_aquire(struct rec_lock *rec_lock);
+void rec_lock_release(struct rec_lock *rec_lock);
+
 /* Condition variable. */
 struct condition {
     struct list waiters;        /* List of waiting semaphore_elems. */
