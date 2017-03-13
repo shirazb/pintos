@@ -6,7 +6,7 @@
 #include <hash.h>
 
 struct sp_table {
-    struct lock lock;
+    struct rec_lock lock;
     struct hash page_locs; // map<*upage, *user_page_location>
 };
 

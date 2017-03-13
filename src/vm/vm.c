@@ -13,7 +13,8 @@
 static void lock_vm(void);
 static void unlock_vm(void);
 
-void swap_out_frame();
+static void swap_out_frame();
+
 static struct rec_lock vm_lock;
 
 /*
@@ -71,23 +72,30 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     return free_frame->kpage;
 }
 
-void * vm_handle_page_fault(void *upage) {
+void *vm_handle_page_fault(void *upage) {
 
+    // Look up upage in the process' supplementary page table.
     struct sp_table *sp_table = &process_current()->sp_table;
     struct user_page_location *upl = sp_lookup(sp_table, upage);
-
-    if (!upl) {
+    if (upl == NULL) {
         process_exit();
         NOT_REACHED();
     }
 
+    // Synchronously make local copies of the location and location type.
+    rec_lock_acquire(&sp_table->lock);
+    void *location = upl->location;
+    enum location_type location_type = upl->location_type;
+    rec_lock_release(&sp_table->lock);
+
     lock_vm();
 
+    // Handle the page fault according to where the page is actually stored.
     void *kpage;
-    switch (upl->location_type) {
+    switch (location_type) {
         case SWAP:
             kpage = vm_alloc_user_page(PAL_USER, upage);
-            st_swap_into_kpage((size_t) upl->location, kpage);
+            st_swap_into_kpage((size_t) location, kpage);
             sp_update_entry(sp_table, upage, kpage, FRAME);
             break;
         case ZERO:
@@ -99,37 +107,12 @@ void * vm_handle_page_fault(void *upage) {
                           "upage maps to a frame.");
         default:
             PANIC("vm_handle_page_fault(): User page location has unknown "
-                          "location_type: %i", upl->location_type);
+                          "location_type: %i", location_type);
     }
 
     unlock_vm();
 
     return kpage;
-
-
-
-    /* User process page fault. */
-    // TODO: Synchronise
-    /*
-     get current process->sp_table
-     upl = look up fault_addr in sp_table
-     if (upl == NULL) {
-        process_exit();
-        NOT_REACHED();
-     }
-     ASSERT(upl->location_type != FRAME);
-     // TODO: vm_page_fault[upl->location_type](upl);
-     void *kpage;
-     switch (upl->location_type)
-     case SWAP:
-         kpage = vm_alloc_user_page(PAL_USER);
-         now we need to swap in to that frame.
-         vm_swap_in(sp_table, kpage, upl->location);
-         pagedir_set_page(pd, upage, kpage);
-
-     case ZERO: fuck knows? break;
-         kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO);
-    */
 }
 
 /*
@@ -139,7 +122,7 @@ void * vm_handle_page_fault(void *upage) {
  * owns the evicted frame's supplementary page table, and updates its page
  * table.
  */
-void swap_out_frame() {
+static void swap_out_frame() {
     struct frame *evicted_frame = ft_evict_frame();
     ASSERT(evicted_frame != NULL);
 
