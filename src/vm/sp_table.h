@@ -26,7 +26,7 @@ struct user_page_location {
 
 struct executable_location {
     struct file *file;
-    size_t page_zero_bytes;
+    size_t page_read_bytes;
 };
 
 void sp_table_init(struct sp_table *sp_table);

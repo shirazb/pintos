@@ -8,6 +8,7 @@
 #include <userprog/pagedir.h>
 #include <threads/malloc.h>
 #include <threads/vaddr.h>
+#include <filesys/file.h>
 #include "vm.h"
 
 /* Synchronisation across the entire vm interface. */
@@ -17,6 +18,8 @@ static void unlock_vm(void);
 static void swap_out_frame(void);
 
 static void * vm_grow_stack(void *upage);
+
+static void *load_exec_page(void *upage);
 
 static struct rec_lock vm_lock;
 
@@ -103,27 +106,69 @@ void *vm_handle_page_fault(void *upage, void *esp) {
 
     lock_vm();
 
+    bool writeable = true;
+
     // Handle the page fault according to where the page is actually stored.
     switch (location_type) {
-        case SWAP:
-            kpage = vm_alloc_user_page(PAL_USER, upage);
-            st_swap_into_kpage((size_t) location, kpage);
-            sp_update_entry(sp_table, upage, kpage, FRAME);
-            break;
-        case ZERO:
-            kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
-            break;
-        case FRAME:
-            PANIC("vm_handle_page_fault(): Page faulted when sp table says "
-                          "upage maps to a frame.");
-        default:
-            PANIC("vm_handle_page_fault(): User page location has unknown "
-                          "location_type: %i", location_type);
+    case SWAP:
+        kpage = vm_alloc_user_page(PAL_USER, upage);
+        st_swap_into_kpage((size_t) location, kpage);
+        sp_update_entry(sp_table, upage, kpage, FRAME);
+        break;
+    case ZERO:
+        kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
+        break;
+    case FILESYS:
+        kpage = load_exec_page(upage);
+        writeable = false;
+        break;
+    case FRAME:
+        PANIC("vm_handle_page_fault(): Page faulted when sp table says "
+                      "upage maps to a frame.");
+    default:
+        PANIC("vm_handle_page_fault(): User page location has unknown "
+                      "location_type: %i", location_type);
     }
 
     unlock_vm();
     pagedir_set_page(thread_current()->pagedir, pg_round_down(upage), kpage,
-                     true);
+                     writeable);
+
+    return kpage;
+}
+
+static void *load_exec_page(void *upage) {
+    struct user_page_location *upl = sp_lookup(
+            &process_current()->sp_table,
+            upage
+    );
+    ASSERT(upl->location_type == FILESYS);
+
+    struct executable_location *exec_loc = (struct executable_location *)
+            upl->location;
+
+    off_t page_read_bytes = (off_t) exec_loc->page_read_bytes;
+    void *kpage = vm_alloc_user_page(PAL_USER, upage);
+
+    off_t bytes_written = file_read(exec_loc->file, kpage, page_read_bytes);
+
+    bool read_failed = bytes_written != (int) page_read_bytes;
+    bool page_already_taken =
+            pagedir_get_page(thread_current()->pagedir, upage) != NULL;
+
+
+    if (read_failed || page_already_taken) {
+        vm_free_user_page(kpage);
+        process_exit();
+        NOT_REACHED();
+    }
+
+    sp_update_entry(
+            &process_current()->sp_table,
+            upage,
+            kpage,
+            FRAME
+    );
 
     return kpage;
 }

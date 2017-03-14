@@ -835,10 +835,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 //            return false;
 //        }
 
-        // malloc executable_location
-        // Set file and page_zero_bytes
-        // Add upage -> (FILESYS, upage, file, page_zero_bytes) to sp_table.
-
         struct executable_location *exec_loc = malloc(
                 sizeof(struct executable_location)
         );
@@ -848,7 +844,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         }
 
         exec_loc->file = file;
-        exec_loc->page_zero_bytes = page_zero_bytes;
+        exec_loc->page_read_bytes = page_read_bytes;
 
         sp_add_entry(
                 &process_current()->sp_table,
