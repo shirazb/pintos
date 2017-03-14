@@ -3,6 +3,7 @@
 #include <threads/malloc.h>
 #include <threads/thread.h>
 #include <userprog/process.h>
+#include <stdio.h>
 
 #define NUM_FRAMES (2 << 22)
 
@@ -23,6 +24,8 @@ static struct frame_table {
 
 static struct frame_table ft;
 
+static int frame_num = 0;
+
 void lock_ft(void) {
     lock_acquire(&ft.lock);
 }
@@ -37,6 +40,7 @@ void ft_init(void) {
 }
 
 struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
+//    printf("frame_num = %i\n", ++frame_num);
     lock_ft();
     size_t frame_index = bitmap_scan_and_flip(ft.used_frames, 0, 1, false);
     unlock_ft();
@@ -78,6 +82,7 @@ struct frame *ft_lookup(void *kpage) {
 }
 
 void ft_remove(struct frame *frame) {
+//    printf("frame_num = %i\n", --frame_num);
     lock_ft();
     bitmap_flip(ft.used_frames, frame->index);
     hash_delete(&ft.table, &frame->hash_elem);

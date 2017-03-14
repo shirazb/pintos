@@ -105,6 +105,24 @@ st_swap_out_kpage(struct thread *thread_used_by, void *upage, void *kpage) {
     return slot_idx;
 }
 
+void st_free_swap_entry(size_t index) {
+    lock_st();
+
+    bitmap_flip(st.used_slots, index);
+    ASSERT(!bitmap_test(st.used_slots, index));
+
+    struct swap_slot search_slot;
+    search_slot.index = index;
+
+    struct hash_elem *e = hash_delete(&st.table, &search_slot.st_elem);
+    ASSERT(e);
+
+    unlock_st();
+
+    struct swap_slot *slot = hash_entry(e, struct swap_slot, st_elem);
+    free(slot);
+}
+
 
 /*
  * Writes the kpage to the swap slot indexed by the given slot_index.

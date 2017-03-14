@@ -20,6 +20,9 @@ static void * vm_grow_stack(void *upage);
 
 static struct rec_lock vm_lock;
 
+static hash_action_func clear_entry;
+
+
 /*
  * Locks the vm.
  */
@@ -173,5 +176,17 @@ void vm_free_user_page(void *kpage) {
     sp_remove_entry(sp_table, frame->upage);
     ft_destroy(frame);
     unlock_vm();
+}
+
+void vm_reclaim_pages(void) {
+    sp_clear_table(&process_current()->sp_table, clear_entry);
+}
+
+void clear_entry(struct hash_elem *e, void *aux UNUSED) {
+    struct user_page_location *location = hash_entry(e, struct user_page_location, hash_elem);
+    if (location->location_type == SWAP) {
+        st_free_swap_entry((size_t) location->location);
+        sp_remove_entry(&process_current()->sp_table, location->upage);
+    }
 }
 

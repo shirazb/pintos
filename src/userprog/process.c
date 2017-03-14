@@ -399,8 +399,6 @@ destroy_process(struct process *p) {
     ASSERT(p != NULL);
     enum intr_level old_level = intr_disable();
 
-    sp_table_destroy(&p->sp_table);
-
     hash_destroy(&p->open_files, &open_files_destroy_func);
     if (p->pid != TEST_PROC_PID) {
         list_remove (&p->child_proc_elem);
@@ -428,9 +426,11 @@ process_exit(void) {
            directory before destroying the process's page
            directory, or our active page directory will be one
            that's been freed (and cleared). */
+        vm_reclaim_pages();
         curr->pagedir = NULL;
         pagedir_activate (NULL);
         pagedir_destroy (pd);
+        sp_destroy(&curr->process->sp_table);
     }
 
     struct process *proc_curr = process_current();
@@ -915,3 +915,4 @@ open_file_less(const struct hash_elem *a, const struct hash_elem *b,
 
     return open_file_a->fd < open_file_b->fd;
 }
+

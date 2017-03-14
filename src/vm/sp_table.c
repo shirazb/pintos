@@ -12,10 +12,6 @@ void sp_table_init(struct sp_table *sp_table) {
     intr_set_level(old_level);
 }
 
-void sp_table_destroy(struct sp_table *sp_table) {
-    hash_destroy(&sp_table->page_locs, user_location_destroy);
-}
-
 void sp_add_entry(struct sp_table *sp_table, void *upage, void *location,
                   enum location_type location_type) {
     struct user_page_location *upl = malloc(sizeof(struct user_page_location));
@@ -74,6 +70,12 @@ void sp_update_entry(
     rec_lock_release(&sp_table->lock);
 }
 
+void sp_clear_table(struct sp_table *sp_table, hash_action_func clear_entry) {
+    rec_lock_acquire(&sp_table->lock);
+    hash_apply(&sp_table->page_locs, clear_entry);
+    rec_lock_release(&sp_table->lock);
+}
+
 /*
  * Looks up the given upage in the given sp_table. Returns NULL if it is not
  * there.
@@ -98,6 +100,12 @@ struct user_page_location *sp_lookup(struct sp_table *sp_table, void *upage) {
     return upl;
 }
 
+void sp_destroy(struct sp_table *sp_table) {
+    rec_lock_acquire(&sp_table->lock);
+    hash_destroy(&sp_table->page_locs, user_location_destroy);
+    rec_lock_release(&sp_table->lock);
+}
+
 unsigned user_location_hash_func(const struct hash_elem *e, void *aux UNUSED) {
     struct user_page_location *location = hash_entry(
             e,
@@ -117,3 +125,5 @@ void user_location_destroy(struct hash_elem *e, void *aux UNUSED) {
     struct user_page_location *location = hash_entry(e, struct user_page_location, hash_elem);
     free(location);
 }
+
+
