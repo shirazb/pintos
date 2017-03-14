@@ -7,6 +7,7 @@
 #include <vm/swap.h>
 #include <userprog/pagedir.h>
 #include <threads/malloc.h>
+#include <threads/vaddr.h>
 #include "vm.h"
 
 /* Synchronisation across the entire vm interface. */
@@ -14,6 +15,8 @@ static void lock_vm(void);
 static void unlock_vm(void);
 
 static void swap_out_frame(void);
+
+static void * vm_grow_stack(void *upage);
 
 static struct rec_lock vm_lock;
 
@@ -72,14 +75,21 @@ void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     return free_frame->kpage;
 }
 
-void *vm_handle_page_fault(void *upage) {
+void *vm_handle_page_fault(void *upage, void *esp) {
+
+    void *kpage;
+    unsigned long offset = esp - upage;
+    bool grow_the_stack = esp <= upage || offset == 4 || offset == 32 ||
+            (PHYS_BASE - MAX_STACK_SIZE <= upage && PHYS_BASE > upage);
+    if (grow_the_stack) {
+        return vm_grow_stack(upage);
+    }
 
     // Look up upage in the process' supplementary page table.
     struct sp_table *sp_table = &process_current()->sp_table;
     struct user_page_location *upl = sp_lookup(sp_table, upage);
     if (upl == NULL) {
-        process_exit();
-        NOT_REACHED();
+        return NULL;
     }
 
     // Synchronously make local copies of the location and location type.
@@ -91,7 +101,6 @@ void *vm_handle_page_fault(void *upage) {
     lock_vm();
 
     // Handle the page fault according to where the page is actually stored.
-    void *kpage;
     switch (location_type) {
         case SWAP:
             kpage = vm_alloc_user_page(PAL_USER, upage);
@@ -110,6 +119,8 @@ void *vm_handle_page_fault(void *upage) {
     }
 
     unlock_vm();
+    pagedir_set_page(thread_current()->pagedir, pg_round_down(upage), kpage,
+                     true);
 
     return kpage;
 }
@@ -146,6 +157,12 @@ static void swap_out_frame(void) {
     );
 
     free(evicted_frame);
+}
+
+void *vm_grow_stack(void *upage) {
+    void *kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
+    pagedir_set_page(thread_current()->pagedir, pg_round_down(upage), kpage, true);
+    return kpage;
 }
 
 void vm_free_user_page(void *kpage) {

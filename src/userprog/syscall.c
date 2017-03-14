@@ -146,6 +146,8 @@ syscall_handler(struct intr_frame *f) {
     ASSERT(f != NULL);
     int syscall_num = get_syscall_number(f);
 
+    thread_current()->esp = f->esp;
+
     // Perform system call
     syscall_table[syscall_num](f);
 }
