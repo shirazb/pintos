@@ -13,7 +13,7 @@
 static void lock_vm(void);
 static void unlock_vm(void);
 
-static void swap_out_frame();
+static void swap_out_frame(void);
 
 static struct rec_lock vm_lock;
 
@@ -121,7 +121,7 @@ void *vm_handle_page_fault(void *upage) {
  * owns the evicted frame's supplementary page table, and updates its page
  * table.
  */
-static void swap_out_frame() {
+static void swap_out_frame(void) {
     struct frame *evicted_frame = ft_evict_frame();
     ASSERT(evicted_frame != NULL);
 

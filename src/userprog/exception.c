@@ -159,14 +159,14 @@ page_fault(struct intr_frame *f) {
         NOT_REACHED();
     }
 
-    /* To implement virtual memory, delete the rest of the function
-       body, and replace it with code that brings in the page to
-       which fault_addr refers. */
-    printf("Page fault at %p: %s error %s page in %s context.\n",
-           fault_addr,
-           not_present ? "not present" : "rights violation",
-           write ? "writing" : "reading",
-           user ? "user" : "kernel");
+//    /* To implement virtual memory, delete the rest of the function
+//       body, and replace it with code that brings in the page to
+//       which fault_addr refers. */
+//    printf("Page fault at %p: %s error %s page in %s context.\n",
+//           fault_addr,
+//           not_present ? "not present" : "rights violation",
+//           write ? "writing" : "reading",
+//           user ? "user" : "kernel");
 
     void *kpage = vm_handle_page_fault(fault_addr);
     pagedir_set_page(thread_current()->pagedir, fault_addr, kpage, true);
