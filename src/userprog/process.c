@@ -850,7 +850,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
                 &process_current()->sp_table,
                 upage,
                 exec_loc,
-                FILESYS
+                EXECUTABLE
         );
 
         /* Advance. */

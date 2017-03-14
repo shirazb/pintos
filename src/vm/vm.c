@@ -118,7 +118,7 @@ void *vm_handle_page_fault(void *upage, void *esp) {
     case ZERO:
         kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
         break;
-    case FILESYS:
+    case EXECUTABLE:
         kpage = load_exec_page(upage);
         writeable = false;
         break;
@@ -142,7 +142,7 @@ static void *load_exec_page(void *upage) {
             &process_current()->sp_table,
             upage
     );
-    ASSERT(upl->location_type == FILESYS);
+    ASSERT(upl->location_type == EXECUTABLE);
 
     struct executable_location *exec_loc = (struct executable_location *)
             upl->location;
@@ -229,9 +229,17 @@ void vm_reclaim_pages(void) {
 
 void clear_entry(struct hash_elem *e, void *aux UNUSED) {
     struct user_page_location *location = hash_entry(e, struct user_page_location, hash_elem);
-    if (location->location_type == SWAP) {
+
+    switch (location->location_type) {
+    case FRAME:
+        break;
+    case SWAP:
         st_free_swap_entry((size_t) location->location);
+    case EXECUTABLE:
+    case ZERO:
+    default:
         sp_remove_entry(&process_current()->sp_table, location->upage);
+        break;
     }
 }
 

@@ -14,7 +14,7 @@ enum location_type {
     FRAME,
     SWAP,
     ZERO,
-    FILESYS
+    EXECUTABLE
 };
 
 struct user_page_location {
