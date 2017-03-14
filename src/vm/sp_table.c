@@ -1,5 +1,7 @@
 #include <threads/malloc.h>
 #include <userprog/process.h>
+#include <threads/vaddr.h>
+#include <stdio.h>
 
 static hash_hash_func user_location_hash_func;
 static hash_less_func user_location_less_func;
@@ -12,8 +14,16 @@ void sp_table_init(struct sp_table *sp_table) {
     intr_set_level(old_level);
 }
 
+
 void sp_add_entry(struct sp_table *sp_table, void *upage, void *location,
-                  enum location_type location_type) {
+                  enum location_type location_type
+) {
+    ASSERT(sp_table);
+    ASSERT(upage);
+    ASSERT(location);
+    ASSERT(is_page_aligned(upage));
+//    printf("adding %i 0x%08x\n", location_type, (unsigned int) upage);
+
     struct user_page_location *upl = malloc(sizeof(struct user_page_location));
     if (!upl) {
         process_exit();
@@ -29,7 +39,11 @@ void sp_add_entry(struct sp_table *sp_table, void *upage, void *location,
     rec_lock_release(&sp_table->lock);
 }
 
+
 void sp_remove_entry(struct sp_table *sp_table, void *upage) {
+    ASSERT(is_page_aligned(upage));
+//    printf("removing 0x%08x\n", (unsigned int) upage);
+
     struct user_page_location search_upl;
     search_upl.upage = upage;
 
@@ -47,6 +61,7 @@ void sp_update_entry(
         void *new_location,
         enum location_type new_location_type
 ) {
+    ASSERT(is_page_aligned(upage));
     struct user_page_location search_upl;
     search_upl.upage = upage;
 
@@ -64,6 +79,7 @@ void sp_update_entry(
             hash_elem
     );
 
+//    printf("updating %i to %i\n", upl->location_type, new_location_type);
     upl->location = new_location;
     upl->location_type = new_location_type;
 
@@ -81,6 +97,7 @@ void sp_clear_table(struct sp_table *sp_table, hash_action_func clear_entry) {
  * there.
  */
 struct user_page_location *sp_lookup(struct sp_table *sp_table, void *upage) {
+    ASSERT(is_page_aligned(upage));
     struct user_page_location search_upl;
     search_upl.upage = upage;
 
@@ -90,6 +107,10 @@ struct user_page_location *sp_lookup(struct sp_table *sp_table, void *upage) {
             &search_upl.hash_elem
     );
     rec_lock_release(&sp_table->lock);
+
+    if (!found_elem) {
+        return NULL;
+    }
 
     struct user_page_location *upl = hash_entry(
             found_elem,

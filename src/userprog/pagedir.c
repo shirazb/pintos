@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <vm/vm.h>
+#include <stdio.h>
 #include "threads/init.h"
 #include "threads/pte.h"
 #include "threads/palloc.h"
@@ -99,6 +100,8 @@ lookup_page (uint32_t *pd, const void *vaddr, bool create)
 bool
 pagedir_set_page (uint32_t *pd, void *upage, void *kpage, bool writable)
 {
+//  printf("adding 0x%08x to page dir\n", (unsigned int) upage);
+
   uint32_t *pte;
 
   ASSERT (pg_ofs (upage) == 0);
@@ -144,6 +147,7 @@ pagedir_get_page (uint32_t *pd, const void *uaddr)
 void
 pagedir_clear_page (uint32_t *pd, void *upage) 
 {
+//  printf("clearing 0x%08x to page dir\n", (unsigned int) upage);
   uint32_t *pte;
 
   ASSERT (pg_ofs (upage) == 0);

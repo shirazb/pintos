@@ -4,6 +4,7 @@
 
 #include <stddef.h>
 #include <hash.h>
+#include <filesys/off_t.h>
 
 struct sp_table {
     struct rec_lock lock;
@@ -27,6 +28,7 @@ struct user_page_location {
 struct executable_location {
     struct file *file;
     size_t page_read_bytes;
+    off_t start_pos;
 };
 
 void sp_table_init(struct sp_table *sp_table);

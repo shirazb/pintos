@@ -809,6 +809,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
     ASSERT (ofs % PGSIZE == 0);
 
     file_seek(file, ofs);
+    off_t start_pos = ofs;
     while (read_bytes > 0 || zero_bytes > 0) {
         /* Calculate how to fill this page.
            We will read PAGE_READ_BYTES bytes from FILE
@@ -845,6 +846,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
         exec_loc->file = file;
         exec_loc->page_read_bytes = page_read_bytes;
+        exec_loc->start_pos = start_pos;
 
         sp_add_entry(
                 &process_current()->sp_table,
@@ -855,10 +857,13 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
         /* Advance. */
         file_seek(file, (off_t) page_read_bytes);
+        start_pos += page_read_bytes;
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
         upage += PGSIZE;
     }
+
+
     return true;
 }
 
