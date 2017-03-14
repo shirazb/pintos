@@ -13,7 +13,8 @@ struct sp_table {
 enum location_type {
     FRAME,
     SWAP,
-    ZERO
+    ZERO,
+    FILESYS
 };
 
 struct user_page_location {
@@ -21,6 +22,11 @@ struct user_page_location {
     void *location;
     enum location_type location_type;
     struct hash_elem hash_elem;
+};
+
+struct executable_location {
+    struct file *file;
+    size_t page_zero_bytes;
 };
 
 void sp_table_init(struct sp_table *sp_table);

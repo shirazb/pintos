@@ -816,26 +816,49 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-        /* Get a page of memory. */
-        uint8_t *kpage = vm_alloc_user_page(PAL_USER, upage);
-        if (kpage == NULL) {
+//        /* Get a page of memory. */
+//        uint8_t *kpage = vm_alloc_user_page(PAL_USER, upage);
+//        if (kpage == NULL) {
+//            return false;
+//        }
+//
+//        /* Load this page. */
+//        if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
+//            vm_free_user_page(kpage);
+//            return false;
+//        }
+//        memset(kpage + page_read_bytes, 0, page_zero_bytes);
+//
+//        /* Add the page to the process's address space. */
+//        if (!install_page(upage, kpage, writable)) {
+//            vm_free_user_page(kpage);
+//            return false;
+//        }
+
+        // malloc executable_location
+        // Set file and page_zero_bytes
+        // Add upage -> (FILESYS, upage, file, page_zero_bytes) to sp_table.
+
+        struct executable_location *exec_loc = malloc(
+                sizeof(struct executable_location)
+        );
+
+        if (exec_loc == NULL) {
             return false;
         }
 
-        /* Load this page. */
-        if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
-            vm_free_user_page(kpage);
-            return false;
-        }
-        memset(kpage + page_read_bytes, 0, page_zero_bytes);
+        exec_loc->file = file;
+        exec_loc->page_zero_bytes = page_zero_bytes;
 
-        /* Add the page to the process's address space. */
-        if (!install_page(upage, kpage, writable)) {
-            vm_free_user_page(kpage);
-            return false;
-        }
+        sp_add_entry(
+                &process_current()->sp_table,
+                upage,
+                exec_loc,
+                FILESYS
+        );
 
         /* Advance. */
+        file_seek(file, (off_t) page_read_bytes);
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
         upage += PGSIZE;
