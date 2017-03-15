@@ -95,11 +95,15 @@ st_swap_out_kpage(struct thread *thread_used_by, void *upage, void *kpage) {
     if (slot_idx == BITMAP_ERROR) {
         PANIC("Exhausted swap space!");
     }
-    unlock_st();
 
     new_slot->thread_used_by = thread_used_by;
     new_slot->index = slot_idx;
     new_slot->upage = upage;
+
+    struct hash_elem *prev_entry = hash_insert(&st.table, &new_slot->st_elem);
+    ASSERT(prev_entry == NULL);
+    
+    unlock_st();
     write_to_swap(new_slot->index, kpage);
 
     return slot_idx;
@@ -109,7 +113,7 @@ void st_free_swap_entry(size_t index) {
     lock_st();
 
     bitmap_flip(st.used_slots, index);
-    ASSERT(!bitmap_test(st.used_slots, index));
+    ASSERT(bitmap_test(st.used_slots, index) == 0);
 
     struct swap_slot search_slot;
     search_slot.index = index;

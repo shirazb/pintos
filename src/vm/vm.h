@@ -3,7 +3,7 @@
 
 #include <threads/palloc.h>
 
-#define MAX_STACK_SIZE (PGSIZE * 8)
+#define MAX_STACK_SIZE (PGSIZE * 20)
 
 void vm_init(void);
 void * vm_alloc_user_page(enum palloc_flags flags, void *upage);

@@ -11,35 +11,26 @@
 /* Partition that contains the file system. */
 struct block *fs_device;
 
-static struct read_write_lock filesys_lock;
+static struct lock filesys_lock;
 
 static void do_format(void);
 
+
 static inline void
-lock_filesys_read(void) {
-    r_lock_acquire(&filesys_lock);
+lock_filesys(void) {
+    lock_acquire(&filesys_lock);
 }
 
 static inline void
-release_filesys_read(void) {
-    r_lock_release(&filesys_lock);
-}
-
-static inline void
-lock_filesys_write(void) {
-    w_lock_acquire(&filesys_lock);
-}
-
-static inline void
-release_filesys_write(void) {
-    w_lock_release(&filesys_lock);
+release_filesys(void) {
+    lock_release(&filesys_lock);
 }
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void
 filesys_init(bool format) {
-    rw_lock_init(&filesys_lock);
+    lock_init(&filesys_lock);
 
     fs_device = block_get_role(BLOCK_FILESYS);
     if (fs_device == NULL)
@@ -67,7 +58,7 @@ filesys_done(void) {
    or if internal memory allocation fails. */
 bool
 filesys_create(const char *name, off_t initial_size) {
-    lock_filesys_write();
+    lock_filesys();
 
     block_sector_t inode_sector = 0;
     struct dir *dir = dir_open_root();
@@ -79,7 +70,7 @@ filesys_create(const char *name, off_t initial_size) {
         free_map_release(inode_sector, 1);
     dir_close(dir);
 
-    release_filesys_write();
+    release_filesys();
 
     return success;
 }
@@ -91,7 +82,7 @@ filesys_create(const char *name, off_t initial_size) {
    or if an internal memory allocation fails. */
 struct file *
 filesys_open(const char *name) {
-    lock_filesys_read();
+    lock_filesys();
 
     struct dir *dir = dir_open_root();
     struct inode *inode = NULL;
@@ -102,7 +93,7 @@ filesys_open(const char *name) {
 
     struct file *opened_file = file_open(inode);
 
-    release_filesys_read();
+    release_filesys();
 
     return opened_file;
 }
@@ -113,13 +104,13 @@ filesys_open(const char *name) {
    or if an internal memory allocation fails. */
 bool
 filesys_remove(const char *name) {
-    lock_filesys_write();
+    lock_filesys();
 
     struct dir *dir = dir_open_root();
     bool success = dir != NULL && dir_remove(dir, name);
     dir_close(dir);
 
-    release_filesys_write();
+    release_filesys();
 
     return success;
 }

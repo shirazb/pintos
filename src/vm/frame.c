@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <threads/vaddr.h>
 
-#define NUM_FRAMES (2 << 22)
+#define NUM_FRAMES (2 << 20)
 
 static void lock_ft(void);
 
@@ -81,6 +81,7 @@ struct frame *ft_lookup(void *kpage) {
 void ft_remove(struct frame *frame) {
     lock_ft();
     bitmap_flip(ft.used_frames, frame->index);
+    ASSERT(bitmap_test(ft.used_frames, frame->index) == 0);
     hash_delete(&ft.table, &frame->hash_elem);
     unlock_ft();
 
