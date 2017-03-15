@@ -2,11 +2,10 @@
 #include <bitmap.h>
 #include <threads/malloc.h>
 #include <threads/thread.h>
-#include <userprog/process.h>
-#include <stdio.h>
 #include <threads/vaddr.h>
+#include <lib/random.h>
 
-#define NUM_FRAMES (2 << 20)
+#define NUM_FRAMES (1 << 21)
 
 static void lock_ft(void);
 
@@ -101,10 +100,17 @@ struct frame *ft_evict_frame(void) {
 
 // TODO: Implement a proper eviction algorithm.
 static struct frame *pick_frame_to_evict(void) {
+
+    unsigned rand = (unsigned) (random_ulong() % 10);
+
     struct hash_iterator it;
     lock_ft();
     hash_first(&it, &ft.table);
-    struct hash_elem *e = hash_next(&it);
+    struct hash_elem *e;
+    for (int i = 0; i < rand; i++) {
+        hash_next(&it);
+    }
+    e = hash_next(&it);
     unlock_ft();
 
     return hash_entry(e, struct frame, hash_elem);
