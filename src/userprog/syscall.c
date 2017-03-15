@@ -414,6 +414,7 @@ sys_create(struct intr_frame *f) {
 
     decl_parameter(char *, file_name, f->esp, 0);
     decl_parameter(unsigned int, initial_size, f->esp, 1);
+
     int success = false;
 
     if (initial_size == 0 || file_name == NULL) {
