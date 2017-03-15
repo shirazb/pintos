@@ -7,14 +7,13 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "process.h"
-#include "pagedir.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill(struct intr_frame *);
 
-static void kill_process(void);
+static void kill_process(struct intr_frame *f, bool user);
 
 static void page_fault(struct intr_frame *);
 
@@ -92,7 +91,7 @@ kill(struct intr_frame *f) {
             printf("%s: dying due to interrupt %#04x (%s).\n",
                    thread_name(), f->vec_no, intr_name(f->vec_no));
             intr_dump_frame(f);
-            kill_process();
+            kill_process(NULL, false);
             NOT_REACHED();
 
         case SEL_KCSEG:
@@ -151,6 +150,11 @@ page_fault(struct intr_frame *f) {
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
+    if (!not_present) {
+        kill_process(f, user);
+        NOT_REACHED();
+    }
+
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
        which fault_addr refers. */
@@ -166,23 +170,20 @@ page_fault(struct intr_frame *f) {
 
     /* Kernel page faulted reading user memory. */
     if (kpage == NULL) {
-        if (!user) {
-            // Set eax to 0xffffffff and copies the old value into eip.
-            f->eip = * (void (**)(void)) &f->eax;
-            f->eax = 0xffffffff;
-        }
-
-        kill_process();
+        kill_process(f, user);
         NOT_REACHED();
     }
-
-
-
 
 }
 
 static void
-kill_process(void) {
+kill_process(struct intr_frame *f, bool user) {
+    if (!user) {
+        // Set eax to 0xffffffff and copies the old value into eip.
+        f->eip = * (void (**)(void)) &f->eax;
+        f->eax = 0xffffffff;
+    }
+
     process_current()->exit_status = EXIT_FAILURE;
     process_exit();
     NOT_REACHED();
