@@ -9,6 +9,7 @@
 #include <threads/malloc.h>
 #include <threads/vaddr.h>
 #include <filesys/file.h>
+#include <string.h>
 #include "vm.h"
 
 /* Synchronisation across the entire vm interface. */
@@ -152,13 +153,20 @@ static void *load_exec_page(void *upage) {
     struct executable_location *exec_loc = (struct executable_location *)
             upl->location;
 
+    // Remove upage -> Filesys mapping in sp table.
     sp_remove_entry(&process_current()->sp_table, upage);
 
     off_t page_read_bytes = (off_t) exec_loc->page_read_bytes;
+    size_t page_zero_bytes = (size_t) (PGSIZE - page_read_bytes);
+
+    // Allocate a new page (includes adding the upage -> frame mapping in sp
+    // table).
     void *kpage = vm_alloc_user_page(PAL_USER, upage);
 
+    // Read page_read_bytes bytes of the file into the kpage.
     off_t bytes_written = file_read_at(exec_loc->file, kpage, page_read_bytes, exec_loc->start_pos);
 
+    // Fail if error
     bool read_failed = bytes_written != (int) page_read_bytes;
     bool page_already_taken =
             pagedir_get_page(thread_current()->pagedir, upage) != NULL;
@@ -168,6 +176,9 @@ static void *load_exec_page(void *upage) {
         process_exit();
         NOT_REACHED();
     }
+
+    // Zero out the rest of the page (that was no written to).
+    memset(kpage + page_read_bytes, 0, page_zero_bytes);
 
     return kpage;
 }
