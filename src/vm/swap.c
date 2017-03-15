@@ -127,7 +127,6 @@ void st_free_swap_entry(size_t index) {
     free(slot);
 }
 
-
 /*
  * Writes the kpage to the swap slot indexed by the given slot_index.
  */

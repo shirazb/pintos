@@ -86,11 +86,11 @@ void ft_remove(struct frame *frame) {
     hash_delete(&ft.table, &frame->hash_elem);
     unlock_ft();
 
-    palloc_free_page(frame->kpage);
 }
 
 void ft_destroy(struct frame *frame) {
     ft_remove(frame);
+    palloc_free_page(frame->kpage);
     free(frame);
 }
 
