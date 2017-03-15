@@ -76,7 +76,6 @@ struct frame *ft_lookup(void *kpage) {
     ASSERT(found_elem);
 
     return hash_entry(found_elem, struct frame, hash_elem);
-
 }
 
 void ft_remove(struct frame *frame) {
@@ -85,7 +84,6 @@ void ft_remove(struct frame *frame) {
     ASSERT(bitmap_test(ft.used_frames, frame->index) == 0);
     hash_delete(&ft.table, &frame->hash_elem);
     unlock_ft();
-
 }
 
 void ft_destroy(struct frame *frame) {

@@ -10,6 +10,7 @@
 #include <threads/synch.h>
 #include <threads/vaddr.h>
 #include <threads/malloc.h>
+#include <threads/palloc.h>
 
 #define SECTORS_PER_PAGE (PGSIZE / BLOCK_SECTOR_SIZE)
 
@@ -105,6 +106,7 @@ st_swap_out_kpage(struct thread *thread_used_by, void *upage, void *kpage) {
     
     unlock_st();
     write_to_swap(new_slot->index, kpage);
+    palloc_free_page(kpage);
 
     return slot_idx;
 }

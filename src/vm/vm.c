@@ -124,7 +124,6 @@ void *vm_handle_page_fault(void *uaddr, void *esp) {
         break;
     case EXECUTABLE:
         kpage = load_exec_page(upage);
-        // FIXME: Why shouldn't this be false?
         writeable = true;
         break;
     case FRAME:
