@@ -50,10 +50,7 @@ struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
     }
 
     struct frame *new_frame = malloc(sizeof(struct frame));
-    if (!new_frame) {
-        process_exit();
-        NOT_REACHED();
-    }
+    ASSERT(new_frame != NULL);
 
     new_frame->index = frame_index;
     new_frame->kpage = palloc_get_page(flags);

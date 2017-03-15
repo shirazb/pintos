@@ -25,10 +25,7 @@ void sp_add_entry(struct sp_table *sp_table, void *upage, void *location,
 //    printf("adding %i 0x%08x\n", location_type, (unsigned int) upage);
 
     struct user_page_location *upl = malloc(sizeof(struct user_page_location));
-    if (!upl) {
-        process_exit();
-        NOT_REACHED();
-    }
+    ASSERT(upl);
 
     upl->upage = upage;
     upl->location = location;
