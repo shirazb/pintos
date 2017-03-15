@@ -20,7 +20,7 @@ static void swap_out_frame(void);
 
 static void * vm_grow_stack(void *upage);
 
-static void *load_exec_page(void *upage);
+static void *load_exec_page(void *upage, bool *writeable);
 
 static struct rec_lock vm_lock;
 
@@ -123,8 +123,7 @@ void *vm_handle_page_fault(void *uaddr, void *esp) {
         kpage = vm_alloc_user_page(PAL_USER | PAL_ZERO, upage);
         break;
     case EXECUTABLE:
-        kpage = load_exec_page(upage);
-        writeable = true;
+        kpage = load_exec_page(upage, &writeable);
         break;
     case FRAME:
         PANIC("vm_handle_page_fault(): Page faulted when sp table says "
@@ -140,7 +139,7 @@ void *vm_handle_page_fault(void *uaddr, void *esp) {
     return kpage;
 }
 
-static void *load_exec_page(void *upage) {
+static void *load_exec_page(void *upage, bool *writeable) {
     ASSERT(is_page_aligned(upage));
     struct user_page_location *upl = sp_lookup(
             &process_current()->sp_table,
@@ -157,6 +156,9 @@ static void *load_exec_page(void *upage) {
     size_t page_zero_bytes = PGSIZE - exec_loc->page_read_bytes;
     struct file *exec_file = exec_loc->file;
     off_t start_pos = exec_loc->start_pos;
+
+    // Set whether or not the page is writeable
+    *writeable = exec_loc->writeable;
 
     // Remove upage -> Filesys mapping in sp table.
     sp_remove_entry(&process_current()->sp_table, upage);

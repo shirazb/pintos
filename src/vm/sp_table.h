@@ -29,6 +29,7 @@ struct executable_location {
     struct file *file;
     size_t page_read_bytes;
     off_t start_pos;
+    bool writeable;
 };
 
 void sp_table_init(struct sp_table *sp_table);

@@ -827,6 +827,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         exec_loc->file = file;
         exec_loc->page_read_bytes = page_read_bytes;
         exec_loc->start_pos = start_pos;
+        exec_loc->writeable = writable;
 
         ASSERT(0 <= page_read_bytes && page_read_bytes <= PGSIZE);
         ASSERT(0 <= exec_loc->page_read_bytes && exec_loc->page_read_bytes <= PGSIZE);
