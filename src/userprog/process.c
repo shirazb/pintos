@@ -426,11 +426,10 @@ process_exit(void) {
            directory before destroying the process's page
            directory, or our active page directory will be one
            that's been freed (and cleared). */
-        vm_reclaim_pages();
         curr->pagedir = NULL;
         pagedir_activate (NULL);
         pagedir_destroy (pd);
-        sp_destroy(&curr->process->sp_table);
+        vm_reclaim_pages();
     }
 
     struct process *proc_curr = process_current();
@@ -817,25 +816,6 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-//        /* Get a page of memory. */
-//        uint8_t *kpage = vm_alloc_user_page(PAL_USER, upage);
-//        if (kpage == NULL) {
-//            return false;
-//        }
-//
-//        /* Load this page. */
-//        if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
-//            vm_free_user_page(kpage);
-//            return false;
-//        }
-//        memset(kpage + page_read_bytes, 0, page_zero_bytes);
-//
-//        /* Add the page to the process's address space. */
-//        if (!install_page(upage, kpage, writable)) {
-//            vm_free_user_page(kpage);
-//            return false;
-//        }
-
         struct executable_location *exec_loc = malloc(
                 sizeof(struct executable_location)
         );
@@ -847,6 +827,9 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         exec_loc->file = file;
         exec_loc->page_read_bytes = page_read_bytes;
         exec_loc->start_pos = start_pos;
+
+        ASSERT(0 <= page_read_bytes && page_read_bytes <= PGSIZE);
+        ASSERT(0 <= exec_loc->page_read_bytes && exec_loc->page_read_bytes <= PGSIZE);
 
         sp_add_entry(
                 &process_current()->sp_table,

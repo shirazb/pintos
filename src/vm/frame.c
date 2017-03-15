@@ -44,8 +44,9 @@ struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
     lock_ft();
     size_t frame_index = bitmap_scan_and_flip(ft.used_frames, 0, 1, false);
     unlock_ft();
+    void *kpage = palloc_get_page(flags);
 
-    if (frame_index == BITMAP_ERROR) {
+    if (frame_index == BITMAP_ERROR || kpage == NULL) {
         return NULL;
     }
 
@@ -53,7 +54,7 @@ struct frame *ft_init_new_frame(enum palloc_flags flags, void *upage) {
     ASSERT(new_frame != NULL);
 
     new_frame->index = frame_index;
-    new_frame->kpage = palloc_get_page(flags);
+    new_frame->kpage = kpage;
     new_frame->upage = upage;
     new_frame->thread_used_by = thread_current();
     ASSERT(new_frame->kpage != NULL);

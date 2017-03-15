@@ -32,9 +32,9 @@ struct executable_location {
 };
 
 void sp_table_init(struct sp_table *sp_table);
-void sp_clear_table(struct sp_table *sp_table, hash_action_func clear_entry);
+void sp_destroy(struct sp_table *sp_table, hash_action_func clear_entry);
 void sp_add_entry(struct sp_table *sp_table, void *upage, void *location, enum location_type location_type);
-void sp_destroy(struct sp_table *sp_table);
+void sp_destroy(struct sp_table *sp_table, hash_action_func clear_entry);
 void sp_remove_entry(struct sp_table *sp_table, void *upage);
 void sp_update_entry(struct sp_table *sp_table, void *upage, void *new_location, enum location_type new_location_type);
 struct user_page_location * sp_lookup(struct sp_table *sp_table, void *upage);

@@ -83,9 +83,9 @@ void sp_update_entry(
     rec_lock_release(&sp_table->lock);
 }
 
-void sp_clear_table(struct sp_table *sp_table, hash_action_func clear_entry) {
+void sp_destroy(struct sp_table *sp_table, hash_action_func clear_entry) {
     rec_lock_acquire(&sp_table->lock);
-    hash_apply(&sp_table->page_locs, clear_entry);
+    hash_destroy(&sp_table->page_locs, clear_entry);
     rec_lock_release(&sp_table->lock);
 }
 
@@ -118,11 +118,6 @@ struct user_page_location *sp_lookup(struct sp_table *sp_table, void *upage) {
     return upl;
 }
 
-void sp_destroy(struct sp_table *sp_table) {
-    rec_lock_acquire(&sp_table->lock);
-    hash_destroy(&sp_table->page_locs, user_location_destroy);
-    rec_lock_release(&sp_table->lock);
-}
 
 unsigned user_location_hash_func(const struct hash_elem *e, void *aux UNUSED) {
     struct user_page_location *location = hash_entry(
@@ -140,8 +135,13 @@ bool user_location_less_func(const struct hash_elem *a, const struct hash_elem *
 }
 
 void user_location_destroy(struct hash_elem *e, void *aux UNUSED) {
-    struct user_page_location *location = hash_entry(e, struct user_page_location, hash_elem);
-    free(location);
+    struct user_page_location *upl = hash_entry(e, struct user_page_location, hash_elem);
+
+    if (upl->location_type == EXECUTABLE) {
+        free((struct executable_location *) upl->location);
+    }
+
+    free(upl);
 }
 
 
