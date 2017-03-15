@@ -137,7 +137,7 @@ write_to_swap(size_t slot_index, void *kpage) {
 
     for (int i = 0; i < SECTORS_PER_PAGE; i++) {
         block_sector_t sector = (block_sector_t) (slot_index * SECTORS_PER_PAGE + i);
-        block_write(st.swap_block, sector, kpage);
+        block_write(st.swap_block, sector, kpage + (i * BLOCK_SECTOR_SIZE));
     }
 }
 
@@ -151,7 +151,7 @@ read_from_swap(size_t slot_index, void *kpage) {
 
     for (int i = 0; i < SECTORS_PER_PAGE; i++) {
         block_sector_t sector = (block_sector_t) (slot_index * SECTORS_PER_PAGE + i);
-        block_read(st.swap_block, sector, kpage);
+        block_read(st.swap_block, sector, kpage + (i * BLOCK_SECTOR_SIZE));
     }
 }
 
