@@ -624,11 +624,11 @@ into consecutive virtual pages starting at addr. */
 
 
 static void sys_mmap(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: mmap()");
+    exit_process(-1);
 }
 
 static void sys_munmap(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: munmao()");
+    exit_process(-1);
 }
 
 static void sys_chdir(struct intr_frame *f UNUSED) {
