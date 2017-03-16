@@ -132,8 +132,8 @@ void *vm_handle_page_fault(void *uaddr, void *esp) {
                       "location_type: %i", location_type);
     }
 
-    unlock_vm();
     bool page_was_set = pagedir_set_page(thread_current()->pagedir, upage, kpage, writeable);
+    unlock_vm();
     ASSERT(page_was_set);
     return kpage;
 }
