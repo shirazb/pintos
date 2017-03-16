@@ -22,9 +22,9 @@ static void * vm_grow_stack(void *upage);
 
 static void *load_exec_page(void *upage, bool *writeable);
 
-static struct rec_lock vm_lock;
-
 static hash_action_func clear_entry;
+
+static struct rec_lock vm_lock;
 
 /*
  * Locks the vm.

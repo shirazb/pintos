@@ -26,10 +26,10 @@ struct user_page_location {
 };
 
 struct executable_location {
-    struct file *file;
-    size_t page_read_bytes;
-    off_t start_pos;
-    bool writeable;
+    struct file *file;      // Pointer to executable.
+    size_t page_read_bytes; // How many bytes of the file to read before zeroing the rest of the page.
+    off_t start_pos;        // Offset in the file from which we start reading.
+    bool writeable;         // Indicates whether the page is writable. Depends on the segment of the executable being read.
 };
 
 void sp_table_init(struct sp_table *sp_table);

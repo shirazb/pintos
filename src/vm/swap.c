@@ -15,9 +15,9 @@
 #define SECTORS_PER_PAGE (PGSIZE / BLOCK_SECTOR_SIZE)
 
 static struct swap_table {
-    struct hash table;
-    struct block *swap_block;
-    struct bitmap *used_slots;
+    struct hash table;          // <*upage, swap_slot>
+    struct block *swap_block;   // block for swap space on disk
+    struct bitmap *used_slots;  // keeps track of used slots
     struct lock lock;
 };
 
