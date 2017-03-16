@@ -464,7 +464,7 @@ sys_create(struct intr_frame *f) {
     int success = false;
 
     fail_if_string_invalid(file_name);
-
+    
     if (initial_size == 0 || file_name == NULL) {
         return_value(f, &success);
         return;
