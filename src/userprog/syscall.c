@@ -14,6 +14,8 @@
 
 #define BYTE_SIZE 8
 
+#define MAX_FILENAME_SIZE 1024
+
 /*
  * Declares a variable called PARAM of type TYPE. Initialises it to parameter
  * number INDEX taken from the stack frame pointed to by ESP.
@@ -27,6 +29,7 @@
  */
 #define decl_parameter(TYPE, PARAM, ESP, INDEX) int __word_##PARAM = read_user_word(get_syscall_param_addr((ESP), (INDEX))); \
 TYPE PARAM = * (TYPE *) &__word_##PARAM
+
 
 /* System call handler */
 static void syscall_handler(struct intr_frame *);
@@ -42,6 +45,7 @@ static bool put_user(uint8_t *udst, uint8_t byte);
 static inline uint8_t *get_syscall_param_addr(void *esp, unsigned index);
 static inline void fail_if_invalid_user_addr(const void *addr);
 static void fail_if_buffer_invalid(const void *buffer, unsigned int size);
+static void fail_if_string_invalid(char *name);
 
 /* Returning values to the user process */
 static inline void return_value(struct intr_frame *f, void *val);
@@ -253,6 +257,10 @@ get_syscall_param_addr(void *esp, unsigned index) {
  * Fails if the end of the buffer is not within the page.
  */
 void fail_if_buffer_invalid(const void *buffer, unsigned int size) {
+#ifdef VM
+    return;
+#endif
+
     size_t into_page = ((size_t) buffer % PGSIZE);
     size_t left_of_page = PGSIZE - into_page;
     size_t bytes_checked = 0;
@@ -267,6 +275,45 @@ void fail_if_buffer_invalid(const void *buffer, unsigned int size) {
         } else {
             bytes_checked += PGSIZE;
         }
+    }
+}
+
+/*
+ * Fails if the end of the string is not within the page.
+ *
+ * Pre: name starts in valid memory.
+ */
+static void fail_if_string_invalid(char *name) {
+    char *cur = name;
+    int cur_idx = 0;
+    char validated_cur;
+
+
+    validated_cur = (char) get_user((const uint8_t *) cur);
+    if (validated_cur == -1) {
+        exit_process(EXIT_FAILURE);
+        NOT_REACHED();
+    }
+
+    // Iterate through string until we hit a null terminator or cur points to
+    // the last char.
+    while (validated_cur != '\0' && cur_idx <= MAX_FILENAME_SIZE) {
+        fail_if_invalid_user_addr(cur);
+        validated_cur = (char) get_user((const uint8_t *) cur);
+
+        if (validated_cur == -1) {
+            exit_process(EXIT_FAILURE);
+            NOT_REACHED();
+        }
+
+        cur++;
+        cur_idx++;
+    }
+
+
+    if (cur_idx > MAX_FILENAME_SIZE) {
+        exit_process(EXIT_FAILURE);
+        NOT_REACHED();
     }
 }
 
@@ -414,10 +461,11 @@ sys_create(struct intr_frame *f) {
 
     decl_parameter(char *, file_name, f->esp, 0);
     decl_parameter(unsigned int, initial_size, f->esp, 1);
-
     int success = false;
 
-    if (initial_size == 0 || file_name == NULL) {
+    fail_if_string_invalid(file_name);
+
+    if (file_name == NULL) {
         return_value(f, &success);
         return;
     }
