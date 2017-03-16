@@ -415,12 +415,14 @@ sys_create(struct intr_frame *f) {
     decl_parameter(char *, file_name, f->esp, 0);
     decl_parameter(unsigned int, initial_size, f->esp, 1);
 
-    if (file_name == NULL) {
-        exit_process(EXIT_FAILURE);
-        NOT_REACHED();
+    int success = false;
+
+    if (initial_size == 0 || file_name == NULL) {
+        return_value(f, &success);
+        return;
     }
 
-    bool success = filesys_create(file_name, (off_t) initial_size);
+    success = filesys_create(file_name, (off_t) initial_size);
 
     return_value(f, &success);
 }
