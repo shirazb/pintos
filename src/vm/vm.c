@@ -59,7 +59,6 @@ void vm_init(void) {
  *
  * Returns the kernel page that the user page was mapped to.
  */
-// TODO: Handle PAL_ZERO case
 void *vm_alloc_user_page(enum palloc_flags flags, void *upage) {
     ASSERT(is_page_aligned(upage));
     
