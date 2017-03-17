@@ -62,11 +62,6 @@ static inline void init_syscalls_table(void);
 static syscall_f * syscall_table[NUM_SYSCALLS];
 
 /* System calls */
-static syscall_f sys_inumber;
-static syscall_f sys_isdir;
-static syscall_f sys_readdir;
-static syscall_f sys_mkdir;
-static syscall_f sys_chdir;
 static syscall_f sys_munmap;
 static syscall_f sys_mmap;
 static syscall_f sys_close;
@@ -134,11 +129,6 @@ init_syscalls_table(void) {
     syscall_table[SYS_CLOSE]    = &sys_close;
     syscall_table[SYS_MMAP]     = &sys_mmap;
     syscall_table[SYS_MUNMAP]   = &sys_munmap;
-    syscall_table[SYS_CHDIR]    = &sys_chdir;
-    syscall_table[SYS_MKDIR]    = &sys_mkdir;
-    syscall_table[SYS_READDIR]  = &sys_readdir;
-    syscall_table[SYS_ISDIR]    = &sys_isdir;
-    syscall_table[SYS_INUMBER]  = &sys_inumber;
 }
 
 /**
@@ -679,23 +669,4 @@ static void sys_munmap(struct intr_frame *f UNUSED) {
     exit_process(EXIT_FAILURE);
 }
 
-static void sys_chdir(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: chdir()");
-}
-
-static void sys_mkdir(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: mkdir()");
-}
-
-static void sys_readdir(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: readdir()");
-}
-
-static void sys_isdir(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: isdir()");
-}
-
-static void sys_inumber(struct intr_frame *f UNUSED) {
-    ASSERT("ERROR SYSCALL NOT IMPLEMENTED: inumber()");
-}
 
