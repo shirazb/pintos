@@ -12,13 +12,15 @@
 #include <string.h>
 #include "vm.h"
 
+#define MAX_STACK_SIZE (PGSIZE * 40)
+
 /* Synchronisation across the entire vm interface. */
 static void lock_vm(void);
 static void unlock_vm(void);
 
 static void swap_out_frame(void);
 
-static void * vm_grow_stack(void *upage);
+static void *vm_grow_stack(void *upage);
 
 static void *load_exec_page(void *upage, bool *writeable);
 
