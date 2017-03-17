@@ -98,7 +98,6 @@ struct frame *ft_evict_frame(void) {
     return to_evict;
 }
 
-// TODO: Implement a proper eviction algorithm.
 static struct frame *pick_frame_to_evict(void) {
 
     unsigned rand = (unsigned) (random_ulong() % 10);
