@@ -481,7 +481,7 @@ sys_remove(struct intr_frame *f) {
 
     decl_parameter(char *, file_name, f->esp, 0);
 
-    bool success = filesys_remove(file_name);
+    int success = filesys_remove(file_name);
 
     return_value(f, &success);
 }
@@ -662,7 +662,7 @@ sys_close(struct intr_frame *f) {
         hash_delete (&thread_current()->process->open_files,
                      &open_file->fd_elem);
 
-        free (open_file);
+        free(open_file);
     }
 }
 
@@ -672,11 +672,11 @@ into consecutive virtual pages starting at addr. */
 
 
 static void sys_mmap(struct intr_frame *f UNUSED) {
-    exit_process(-1);
+    exit_process(EXIT_FAILURE);
 }
 
 static void sys_munmap(struct intr_frame *f UNUSED) {
-    exit_process(-1);
+    exit_process(EXIT_FAILURE);
 }
 
 static void sys_chdir(struct intr_frame *f UNUSED) {
