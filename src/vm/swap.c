@@ -1,6 +1,5 @@
 #include "swap.h"
 #include <lib/kernel/bitmap.h>
-#include <threads/synch.h>
 #include <threads/vaddr.h>
 #include <threads/malloc.h>
 #include <threads/palloc.h>
@@ -104,7 +103,8 @@ st_swap_out_kpage(struct thread *thread_used_by, void *upage, void *kpage) {
     return slot_idx;
 }
 
-void st_free_swap_entry(size_t index) {
+void
+st_free_swap_entry(size_t index) {
     lock_st();
 
     bitmap_flip(st.used_slots, index);
